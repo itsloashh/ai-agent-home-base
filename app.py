@@ -461,13 +461,41 @@ AGENTS = {
 }
 
 DEPARTMENTS = {
-    "EXECUTIVE":   {"color": "#8b5cf6", "label": "Executive"},
-    "COUNCIL":     {"color": "#a78bfa", "label": "Advisory Council"},
-    "DEVELOPMENT": {"color": "#3b82f6", "label": "Development"},
-    "CONTENT":     {"color": "#10b981", "label": "Content"},
-    "RESEARCH":    {"color": "#06b6d4", "label": "Research"},
-    "CREATIVE":    {"color": "#f59e0b", "label": "Creative"},
-    "PRODUCT":     {"color": "#ef4444", "label": "Product"},
+    "EXECUTIVE": {
+        "color": "#8b5cf6", "label": "Executive",
+        "mission": "High-level strategy, team coordination, and decision-making for the entire organization.",
+        "examples": "Weekly strategy reviews, OKR planning, cross-team coordination, investor updates, priority decisions",
+    },
+    "COUNCIL": {
+        "color": "#a78bfa", "label": "Advisory Council",
+        "mission": "Provide diverse strategic perspectives — growth, retention, and critical analysis to stress-test every decision.",
+        "examples": "Pitch deck review, go-to-market critique, growth experiments, churn analysis, idea validation",
+    },
+    "DEVELOPMENT": {
+        "color": "#3b82f6", "label": "Development",
+        "mission": "Build, ship, and secure all technical products. Code quality, architecture, and security.",
+        "examples": "Feature development, bug fixes, API integrations, security audits, code reviews, database optimization",
+    },
+    "CONTENT": {
+        "color": "#10b981", "label": "Content",
+        "mission": "Create all written content — social, blog, email, scripts — that drives engagement and brand voice.",
+        "examples": "Twitter threads, blog series, email sequences, YouTube scripts, ad copy, press releases, newsletters",
+    },
+    "RESEARCH": {
+        "color": "#06b6d4", "label": "Research",
+        "mission": "Deep research, trend analysis, and competitive intelligence to inform strategy.",
+        "examples": "Competitor teardowns, market sizing, trend reports, user research summaries, industry analysis",
+    },
+    "CREATIVE": {
+        "color": "#f59e0b", "label": "Creative",
+        "mission": "Design, visual identity, motion, and production pipeline for all creative assets.",
+        "examples": "UI mockups, brand guidelines, logo concepts, animation briefs, video storyboards, asset production timelines",
+    },
+    "PRODUCT": {
+        "color": "#ef4444", "label": "Product",
+        "mission": "Content repurposing, clip extraction, and maximizing the value of every piece of content produced.",
+        "examples": "Podcast clip extraction, highlight reels, quote cards, short-form video hooks, content atomization",
+    },
 }
 
 # =============================================================================
@@ -610,24 +638,26 @@ tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
 )
 
 # =============================================================================
-# TAB 1 — MISSION CONTROL
+# TAB 1 — MISSION CONTROL (interactive)
 # =============================================================================
 with tab_mission:
     online_count = sum(1 for a in AGENTS.values() if a["status"] == "online")
-    active_tasks = sum(1 for t in st.session_state.tasks if t["status"] == "In Progress")
-    critical_count = sum(1 for t in st.session_state.tasks if t["priority"] == "Critical")
-    done_count = sum(1 for t in st.session_state.tasks if t["status"] == "Done")
+    offline_agents = [(n, a) for n, a in AGENTS.items() if a["status"] != "online"]
+    online_agents_list = [(n, a) for n, a in AGENTS.items() if a["status"] == "online"]
+    active_task_list = [t for t in st.session_state.tasks if t["status"] == "In Progress"]
+    critical_task_list = [t for t in st.session_state.tasks if t["priority"] == "Critical"]
+    done_task_list = [t for t in st.session_state.tasks if t["status"] == "Done"]
     total_msgs = sum(len(v) for v in st.session_state.agent_chats.values())
 
     metrics = [
-        ("🟢", str(online_count), f"/ {len(AGENTS)}", "AGENTS ONLINE", "--accent-green"),
-        ("🔄", str(active_tasks), "", "TASKS ACTIVE", "--accent-blue"),
-        ("⚠️", str(critical_count), "", "CRITICAL", "--accent-red"),
-        ("✅", str(done_count), "", "COMPLETED", "--accent-green"),
-        ("💬", str(total_msgs), "", "MESSAGES", "--accent-purple"),
+        ("🟢", str(online_count), f"/ {len(AGENTS)}", "AGENTS ONLINE"),
+        ("🔄", str(len(active_task_list)), "", "TASKS ACTIVE"),
+        ("⚠️", str(len(critical_task_list)), "", "CRITICAL"),
+        ("✅", str(len(done_task_list)), "", "COMPLETED"),
+        ("💬", str(total_msgs), "", "MESSAGES"),
     ]
     mcols = st.columns(len(metrics))
-    for col, (icon, val, suffix, label, color) in zip(mcols, metrics):
+    for col, (icon, val, suffix, label) in zip(mcols, metrics):
         with col:
             st.markdown(
                 f'<div class="metric-card">'
@@ -638,38 +668,173 @@ with tab_mission:
                 unsafe_allow_html=True,
             )
 
+    # ── Expandable metric details ──
+    with st.expander("🟢 Agents Online — click to view details"):
+        oc1, oc2 = st.columns(2)
+        with oc1:
+            st.markdown("**✅ Online:**")
+            for name, info in online_agents_list:
+                msg_ct = len(st.session_state.agent_chats.get(name, []))
+                st.markdown(
+                    f'<div class="sidebar-agent">'
+                    f'<span class="status-dot-online"></span> '
+                    f'<span class="sidebar-agent-name">{info["icon"]} {name}</span>'
+                    f'<br/><span class="sidebar-agent-role">{info["role"]} · {info["dept"]}</span>'
+                    f'{f" · {msg_ct} msgs" if msg_ct else ""}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        with oc2:
+            st.markdown("**🔴 Offline:**")
+            if offline_agents:
+                for name, info in offline_agents:
+                    st.markdown(
+                        f'<div class="sidebar-agent">'
+                        f'<span class="status-dot-offline"></span> '
+                        f'<span class="sidebar-agent-name">{info["icon"]} {name}</span>'
+                        f'<br/><span class="sidebar-agent-role">{info["role"]} · {info["dept"]}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.caption("All agents online!")
+
+    with st.expander("🔄 Active Tasks — click to view details"):
+        if active_task_list:
+            for t in active_task_list:
+                ai_info = AGENTS.get(t["assignee"], {})
+                pcolor = {"Low": "#22c55e", "Medium": "#f59e0b", "High": "#f97316", "Critical": "#ef4444"}.get(t["priority"], "#888")
+                st.markdown(
+                    f'<div class="task-card" style="border-left:3px solid {pcolor}">'
+                    f'<div class="task-title">{t["title"]}</div>'
+                    f'<div class="task-meta">{ai_info.get("icon", "")} {t["assignee"]} · '
+                    f'<span style="color:{pcolor}">{t["priority"]}</span> · {t.get("created", "")}</div>'
+                    f'<div style="font-family:Rajdhani,sans-serif;font-size:0.8rem;color:#94a3b8;margin-top:4px">'
+                    f'{t.get("description", "")}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.caption("No active tasks right now.")
+
+    with st.expander("⚠️ Critical Issues — click to view details"):
+        if critical_task_list:
+            for t in critical_task_list:
+                ai_info = AGENTS.get(t["assignee"], {})
+                st.markdown(
+                    f'<div class="task-card" style="border-left:3px solid #ef4444">'
+                    f'<div class="task-title">🚨 {t["title"]}</div>'
+                    f'<div class="task-meta">{ai_info.get("icon", "")} {t["assignee"]} · '
+                    f'Status: {t["status"]} · {t.get("created", "")}</div>'
+                    f'<div style="font-family:Rajdhani,sans-serif;font-size:0.8rem;color:#94a3b8;margin-top:4px">'
+                    f'{t.get("description", "")}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.success("No critical issues!")
+
+    with st.expander("✅ Completed Tasks — click to view deliverables"):
+        if done_task_list:
+            for t in done_task_list:
+                ai_info = AGENTS.get(t["assignee"], {})
+                st.markdown(
+                    f'<div class="task-card" style="border-left:3px solid #22c55e">'
+                    f'<div class="task-title">✅ {t["title"]}</div>'
+                    f'<div class="task-meta">{ai_info.get("icon", "")} {t["assignee"]} · {t.get("created", "")}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                if t.get("result"):
+                    st.markdown(t["result"][:500] + ("..." if len(t.get("result", "")) > 500 else ""))
+                    st.markdown("---")
+        else:
+            st.caption("No completed tasks yet. Execute tasks in the Tasks tab!")
+
+    with st.expander("💬 Messages — per-agent breakdown"):
+        for name, info in AGENTS.items():
+            msg_ct = len(st.session_state.agent_chats.get(name, []))
+            if msg_ct > 0:
+                st.markdown(
+                    f'{info["icon"]} **{name}** — {msg_ct} messages · {info["role"]}',
+                )
+        if total_msgs == 0:
+            st.caption("No messages yet. Start chatting in the Chat tab!")
+
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ── DEPARTMENTS — interactive with details ──
     st.markdown('<div class="section-header">DEPARTMENTS</div>', unsafe_allow_html=True)
 
-    dept_cols = st.columns(4)
-    for idx, (dept_key, dept_info) in enumerate(DEPARTMENTS.items()):
-        members = [n for n, a in AGENTS.items() if a["dept"] == dept_key]
-        dept_online = sum(1 for n in members if AGENTS[n]["status"] == "online")
-        with dept_cols[idx % 4]:
+    for dept_key, dept_info in DEPARTMENTS.items():
+        members = [(n, a) for n, a in AGENTS.items() if a["dept"] == dept_key]
+        dept_online = sum(1 for _, a in members if a["status"] == "online")
+        dept_tasks_done = [t for t in st.session_state.tasks if t.get("assignee") in [n for n, _ in members] and t["status"] == "Done"]
+        dept_tasks_active = [t for t in st.session_state.tasks if t.get("assignee") in [n for n, _ in members] and t["status"] != "Done"]
+
+        with st.expander(
+            f'{dept_info["label"].upper()} — {dept_online}/{len(members)} online · '
+            f'{len(dept_tasks_done)} completed · {len(dept_tasks_active)} in queue'
+        ):
+            # Department header
             st.markdown(
-                f'<div class="dept-card" style="border-left:3px solid {dept_info["color"]}">'
-                f'<span class="dept-name" style="color:{dept_info["color"]}">{dept_info["label"]}</span>'
-                f'<span class="dept-count">{dept_online}/{len(members)}</span>'
-                f'<div class="dept-members">{", ".join(members)}</div>'
+                f'<div class="dept-card" style="border-left:3px solid {dept_info["color"]};margin-bottom:12px">'
+                f'<span class="dept-name" style="color:{dept_info["color"]}">{dept_info["label"].upper()} DEPARTMENT</span><br/>'
+                f'<div style="font-family:Rajdhani,sans-serif;font-size:0.88rem;color:#e2e8f0;margin-top:6px">'
+                f'{dept_info.get("mission", "")}</div>'
+                f'<div style="margin-top:8px;font-family:Rajdhani,sans-serif;font-size:0.82rem;color:#94a3b8">'
+                f'<span style="color:{dept_info["color"]};font-weight:600">Example use cases:</span> '
+                f'{dept_info.get("examples", "")}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-header">ACTIVE AGENTS</div>', unsafe_allow_html=True)
+            # Agents in this department
+            st.markdown(f"**Team Members ({len(members)}):**")
+            for name, info in members:
+                dot_class = "status-dot-online" if info["status"] == "online" else "status-dot-offline"
+                msg_ct = len(st.session_state.agent_chats.get(name, []))
+                st.markdown(
+                    f'<div class="agent-office-card" style="border-top:2px solid {info["color"]};margin-bottom:8px">'
+                    f'<span class="{dot_class}"></span> '
+                    f'<span class="agent-name">{info["icon"]} {name}</span> · '
+                    f'<span class="agent-role">{info["role"]}</span>'
+                    f'{f" · <span style=color:#8b5cf6>{msg_ct} msgs</span>" if msg_ct else ""}<br/>'
+                    f'<div style="margin-top:4px;font-family:Rajdhani,sans-serif;font-size:0.8rem;color:#94a3b8">'
+                    f'<span style="color:{info["color"]};font-weight:600">Use for:</span> '
+                    f'{info.get("use_cases", "General tasks")}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
-    card_cols = st.columns(4)
-    online_agents = [(n, a) for n, a in AGENTS.items() if a["status"] == "online"]
-    for idx, (name, info) in enumerate(online_agents):
-        with card_cols[idx % 4]:
-            st.markdown(
-                f'<div class="agent-office-card" style="border-top:2px solid {info["color"]}">'
-                f'<span class="status-dot-online"></span> '
-                f'<span class="agent-name">{info["icon"]} {name}</span><br/>'
-                f'<span class="agent-role">{info["role"]}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+            # Completed deliverables from this department
+            if dept_tasks_done:
+                st.markdown(f"**Completed Deliverables ({len(dept_tasks_done)}):**")
+                for t in dept_tasks_done:
+                    ai_info = AGENTS.get(t["assignee"], {})
+                    st.markdown(
+                        f'<div class="task-card" style="border-left:3px solid #22c55e">'
+                        f'<div class="task-title">✅ {t["title"]}</div>'
+                        f'<div class="task-meta">{ai_info.get("icon", "")} {t["assignee"]} · {t.get("created", "")}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if t.get("result"):
+                        st.markdown(t["result"][:300] + ("..." if len(t.get("result", "")) > 300 else ""))
+
+            # Active tasks
+            if dept_tasks_active:
+                st.markdown(f"**In Queue ({len(dept_tasks_active)}):**")
+                for t in dept_tasks_active:
+                    pcolor = {"Low": "#22c55e", "Medium": "#f59e0b", "High": "#f97316", "Critical": "#ef4444"}.get(t["priority"], "#888")
+                    st.markdown(
+                        f'<div class="task-card" style="border-left:3px solid {pcolor}">'
+                        f'<div class="task-title">{t["title"]}</div>'
+                        f'<div class="task-meta">{t["status"]} · '
+                        f'<span style="color:{pcolor}">{t["priority"]}</span></div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
 # =============================================================================
 # TAB 2 — TASKS (with AI orchestration)
@@ -1116,7 +1281,7 @@ with tab_office:
             f"**Claude API:** {claude_status}  \n"
             f"**Grok API:** {grok_status}  \n"
             f"**Deployment:** Streamlit Cloud  \n"
-            f"**Version:** 4.0"
+            f"**Version:** 4.1"
         )
 
 # =============================================================================
@@ -1125,7 +1290,7 @@ with tab_office:
 st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 st.markdown(
     f'<div class="footer-text">'
-    f'AI AGENT HOME BASE · V4.0 · STREAMLIT + PLOTLY · '
+    f'AI AGENT HOME BASE · V4.1 · STREAMLIT + PLOTLY · '
     f'CLAUDE (ANTHROPIC) + GROK (XAI) · '
     f'{datetime.now().strftime("%Y-%m-%d")}'
     f'</div>',
