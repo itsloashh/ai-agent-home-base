@@ -2,3 +2,4 @@ streamlit
 plotly
 anthropic
 openai
+requests
