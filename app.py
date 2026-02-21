@@ -350,32 +350,114 @@ st.markdown("""
 # AGENT DATABASE
 # =============================================================================
 AGENTS = {
-    "JARVIS":    {"role": "Chief Strategy Officer",  "dept": "EXECUTIVE",   "status": "online",  "icon": "🤖", "color": "#8b5cf6",
-                  "prompt": "You are JARVIS, Loash's Chief Strategy Officer. You oversee all agents and provide high-level strategic advice. Be executive-level, concise, and actionable. Address the CEO as Loash."},
-    "GROWTH":    {"role": "Growth Advisor",           "dept": "COUNCIL",     "status": "online",  "icon": "📈", "color": "#a78bfa",
-                  "prompt": "You are GROWTH, a council advisor focused on growth strategy, user acquisition, and scaling. Give aggressive but smart growth advice to CEO Loash."},
-    "RETENTION": {"role": "Retention Advisor",        "dept": "COUNCIL",     "status": "online",  "icon": "🔄", "color": "#a78bfa",
-                  "prompt": "You are RETENTION, a council advisor focused on keeping users, reducing churn, and building loyalty. Advise CEO Loash on retention strategy."},
-    "SKEPTIC":   {"role": "Devil's Advocate",         "dept": "COUNCIL",     "status": "online",  "icon": "🤔", "color": "#a78bfa",
-                  "prompt": "You are SKEPTIC, a council advisor who challenges assumptions, finds flaws in plans, and stress-tests ideas. Push back constructively on CEO Loash's ideas."},
-    "CLAWD":     {"role": "Senior Developer",         "dept": "DEVELOPMENT", "status": "online",  "icon": "🧑‍💻", "color": "#3b82f6",
-                  "prompt": "You are CLAWD, the senior full-stack developer. You write clean, production-ready code. Help CEO Loash with coding, debugging, architecture, and technical decisions. Output code when asked."},
-    "SENTINEL":  {"role": "QA Monitor",               "dept": "DEVELOPMENT", "status": "online",  "icon": "🛡️", "color": "#3b82f6",
-                  "prompt": "You are SENTINEL, the QA and security monitor. You review code for bugs, security issues, and quality. Be thorough and flag risks for CEO Loash."},
-    "SCRIBE":    {"role": "Content Director",         "dept": "CONTENT",     "status": "online",  "icon": "✍️", "color": "#10b981",
-                  "prompt": "You are SCRIBE, the content director. You write blog posts, social threads, scripts, emails, and marketing copy. Match the tone CEO Loash requests. Output polished content."},
-    "ATLAS":     {"role": "Research Analyst",         "dept": "RESEARCH",    "status": "online",  "icon": "🗺️", "color": "#06b6d4",
-                  "prompt": "You are ATLAS, the research analyst. You research topics deeply, summarize findings, and present actionable insights to CEO Loash. Be thorough but concise."},
-    "TRENDY":    {"role": "Viral Scout",              "dept": "RESEARCH",    "status": "offline", "icon": "🔥", "color": "#06b6d4",
-                  "prompt": "You are TRENDY, the viral trend scout. You identify trending topics, viral formats, and cultural moments. Advise CEO Loash on what's hot right now."},
-    "PIXEL":     {"role": "Lead Designer",            "dept": "CREATIVE",    "status": "online",  "icon": "🎨", "color": "#f59e0b",
-                  "prompt": "You are PIXEL, the lead designer. You advise on UI/UX, branding, color palettes, layouts, and visual strategy for CEO Loash. Describe designs in detail."},
-    "NOVA":      {"role": "Production Lead",          "dept": "CREATIVE",    "status": "online",  "icon": "💡", "color": "#f59e0b",
-                  "prompt": "You are NOVA, the production lead. You manage creative pipelines, timelines, and asset delivery. Help CEO Loash coordinate production workflows."},
-    "VIBE":      {"role": "Motion Designer",          "dept": "CREATIVE",    "status": "offline", "icon": "✨", "color": "#f59e0b",
-                  "prompt": "You are VIBE, the motion designer. You create concepts for animations, transitions, motion graphics, and video effects. Describe motion concepts for CEO Loash."},
-    "CLIP":      {"role": "Clipping Agent",           "dept": "PRODUCT",     "status": "online",  "icon": "🎬", "color": "#ef4444",
-                  "prompt": "You are CLIP, the clipping agent. You take long-form content (transcripts, videos, articles) and identify the best short clips, highlights, and quotable moments for CEO Loash. Output timestamps or excerpts with reasoning."},
+    "JARVIS": {
+        "role": "Chief Strategy Officer", "dept": "EXECUTIVE", "status": "online", "icon": "🤖", "color": "#8b5cf6",
+        "prompt": "You are JARVIS, Loash's Chief Strategy Officer. You oversee all agents and provide high-level strategic advice. Be executive-level, concise, and actionable. Address the CEO as Loash.",
+        "use_cases": "Strategic planning, status reports, decision-making, team coordination, priority setting",
+        "workflows": {
+            "mode": {"label": "Strategy Mode", "options": ["Status Report", "Decision Help", "Plan Review", "Priority Check", "Team Brief"]},
+        },
+    },
+    "GROWTH": {
+        "role": "Growth Advisor", "dept": "COUNCIL", "status": "online", "icon": "📈", "color": "#a78bfa",
+        "prompt": "You are GROWTH, a council advisor focused on growth strategy, user acquisition, and scaling. Give aggressive but smart growth advice to CEO Loash.",
+        "use_cases": "User acquisition, funnel optimization, launch strategy, viral growth, partnerships, scaling plans",
+        "workflows": {
+            "mode": {"label": "Growth Focus", "options": ["Acquisition Strategy", "Funnel Review", "Launch Plan", "Partnership Ideas", "Scaling Roadmap"]},
+        },
+    },
+    "RETENTION": {
+        "role": "Retention Advisor", "dept": "COUNCIL", "status": "online", "icon": "🔄", "color": "#a78bfa",
+        "prompt": "You are RETENTION, a council advisor focused on keeping users, reducing churn, and building loyalty. Advise CEO Loash on retention strategy.",
+        "use_cases": "Churn reduction, loyalty programs, re-engagement campaigns, user feedback analysis, community building",
+        "workflows": {
+            "mode": {"label": "Retention Focus", "options": ["Churn Analysis", "Re-engagement Plan", "Loyalty Strategy", "Feedback Review", "Community Building"]},
+        },
+    },
+    "SKEPTIC": {
+        "role": "Devil's Advocate", "dept": "COUNCIL", "status": "online", "icon": "🤔", "color": "#a78bfa",
+        "prompt": "You are SKEPTIC, a council advisor who challenges assumptions, finds flaws in plans, and stress-tests ideas. Push back constructively on CEO Loash's ideas. Be thorough in finding weaknesses but also suggest how to fix them.",
+        "use_cases": "Stress-test ideas, find blind spots, challenge assumptions, risk assessment, pre-mortem analysis",
+        "workflows": {
+            "mode": {"label": "Challenge Type", "options": ["Stress Test Idea", "Find Blind Spots", "Risk Assessment", "Pre-Mortem", "Devil's Advocate"]},
+        },
+    },
+    "CLAWD": {
+        "role": "Senior Developer", "dept": "DEVELOPMENT", "status": "online", "icon": "🧑‍💻", "color": "#3b82f6",
+        "prompt": "You are CLAWD, the senior full-stack developer. You write clean, production-ready code. Help CEO Loash with coding, debugging, architecture, and technical decisions. Output code when asked.",
+        "use_cases": "Write code, debug errors, code review, architecture design, API integration, database queries",
+        "workflows": {
+            "mode": {"label": "Dev Mode", "options": ["Write Code", "Debug Error", "Code Review", "Explain Code", "Architecture Design"]},
+            "language": {"label": "Language", "options": ["Python", "JavaScript", "TypeScript", "HTML/CSS", "SQL", "Any"]},
+        },
+    },
+    "SENTINEL": {
+        "role": "QA Monitor", "dept": "DEVELOPMENT", "status": "online", "icon": "🛡️", "color": "#3b82f6",
+        "prompt": "You are SENTINEL, the QA and security monitor. You review code for bugs, security issues, and quality. Be thorough and flag risks for CEO Loash.",
+        "use_cases": "Security audits, bug detection, code quality review, vulnerability scanning, best practice checks",
+        "workflows": {
+            "mode": {"label": "QA Mode", "options": ["Security Audit", "Bug Hunt", "Quality Review", "Vulnerability Check", "Best Practices"]},
+        },
+    },
+    "SCRIBE": {
+        "role": "Content Director", "dept": "CONTENT", "status": "online", "icon": "✍️", "color": "#10b981",
+        "prompt": "You are SCRIBE, the content director. You write blog posts, social threads, scripts, emails, and marketing copy. Match the tone CEO Loash requests. Output polished, ready-to-publish content.",
+        "use_cases": "Tweet threads, blog posts, email campaigns, video scripts, ad copy, landing page text, newsletters",
+        "workflows": {
+            "format": {"label": "Content Format", "options": ["Tweet Thread", "Blog Post", "Email", "Video Script", "Ad Copy", "Newsletter"]},
+            "tone": {"label": "Tone", "options": ["Professional", "Casual", "Hype/Energetic", "Educational", "Storytelling"]},
+        },
+    },
+    "ATLAS": {
+        "role": "Research Analyst", "dept": "RESEARCH", "status": "online", "icon": "🗺️", "color": "#06b6d4",
+        "prompt": "You are ATLAS, the research analyst. You research topics deeply, summarize findings, and present actionable insights to CEO Loash. Be thorough but concise.",
+        "use_cases": "Market research, competitor analysis, trend reports, topic deep-dives, data summaries, industry overviews",
+        "workflows": {
+            "mode": {"label": "Research Type", "options": ["Market Research", "Competitor Analysis", "Trend Report", "Deep Dive", "Quick Summary"]},
+            "depth": {"label": "Depth", "options": ["Quick (1-2 min read)", "Standard (3-5 min)", "Comprehensive (detailed report)"]},
+        },
+    },
+    "TRENDY": {
+        "role": "Viral Scout", "dept": "RESEARCH", "status": "offline", "icon": "🔥", "color": "#06b6d4",
+        "prompt": "You are TRENDY, the viral trend scout. You identify trending topics, viral formats, and cultural moments. Advise CEO Loash on what's hot right now.",
+        "use_cases": "Trending topics, viral content formats, meme culture, platform trends, hashtag strategy, cultural moments",
+        "workflows": {
+            "mode": {"label": "Trend Type", "options": ["What's Trending Now", "Viral Format Ideas", "Platform Trends", "Hashtag Strategy", "Cultural Moments"]},
+        },
+    },
+    "PIXEL": {
+        "role": "Lead Designer", "dept": "CREATIVE", "status": "online", "icon": "🎨", "color": "#f59e0b",
+        "prompt": "You are PIXEL, the lead designer. You advise on UI/UX, branding, color palettes, layouts, and visual strategy for CEO Loash. Describe designs in detail with specific colors, fonts, spacing, and layout.",
+        "use_cases": "UI/UX design briefs, brand identity, color palettes, layout mockups, logo concepts, style guides",
+        "workflows": {
+            "mode": {"label": "Design Type", "options": ["UI/UX Design", "Brand Identity", "Color Palette", "Layout Mockup", "Logo Concept", "Style Guide"]},
+        },
+    },
+    "NOVA": {
+        "role": "Production Lead", "dept": "CREATIVE", "status": "online", "icon": "💡", "color": "#f59e0b",
+        "prompt": "You are NOVA, the production lead. You manage creative pipelines, timelines, and asset delivery. Help CEO Loash coordinate production workflows.",
+        "use_cases": "Project timelines, asset checklists, production schedules, workflow optimization, deadline management",
+        "workflows": {
+            "mode": {"label": "Production Mode", "options": ["Create Timeline", "Asset Checklist", "Workflow Plan", "Deadline Review", "Resource Allocation"]},
+        },
+    },
+    "VIBE": {
+        "role": "Motion Designer", "dept": "CREATIVE", "status": "offline", "icon": "✨", "color": "#f59e0b",
+        "prompt": "You are VIBE, the motion designer. You create concepts for animations, transitions, motion graphics, and video effects. Describe motion concepts for CEO Loash.",
+        "use_cases": "Animation concepts, transition designs, motion graphics briefs, video effects, intro/outro ideas",
+        "workflows": {
+            "mode": {"label": "Motion Type", "options": ["Animation Concept", "Transition Design", "Motion Graphics", "Video Effects", "Intro/Outro"]},
+        },
+    },
+    "CLIP": {
+        "role": "Clipping Agent", "dept": "PRODUCT", "status": "online", "icon": "🎬", "color": "#ef4444",
+        "prompt": "You are CLIP, the clipping agent. You take long-form content (transcripts, videos, articles) and identify the best short clips, highlights, and quotable moments for CEO Loash. Output specific excerpts with timestamps if available, explain why each clip is good, and suggest titles/hooks for each clip.",
+        "use_cases": "Find viral clips from podcasts, extract highlights from articles, identify quotable moments, suggest short-form hooks",
+        "workflows": {
+            "source": {"label": "Content Source", "options": ["Podcast/Video Transcript", "Article/Blog", "Interview", "Presentation", "Raw Notes"]},
+            "goal": {"label": "Clip Goal", "options": ["Viral Short Clips", "Key Highlights", "Quotable Moments", "Educational Snippets", "Promo Clips"]},
+        },
+    },
 }
 
 DEPARTMENTS = {
@@ -404,6 +486,46 @@ if "tasks" not in st.session_state:
         {"id": 5, "title": "Create demo clip reel from content",  "assignee": "CLIP",     "status": "To Do",       "priority": "Low",      "created": "2026-02-21"},
         {"id": 6, "title": "Design v2 dashboard mockup",          "assignee": "PIXEL",    "status": "To Do",       "priority": "High",     "created": "2026-02-21"},
     ]
+
+# =============================================================================
+# LLM CALL HELPER — reusable across chat + workflows
+# =============================================================================
+def _call_llm(agent_name, model_choice, claude_key, grok_key, history):
+    """Call Claude or Grok with the agent's system prompt and conversation history."""
+    system_prompt = AGENTS[agent_name]["prompt"]
+    api_messages = [{"role": m["role"], "content": m["content"]} for m in history]
+
+    if "Claude" in model_choice:
+        if not claude_key:
+            return "🔑 **Claude API key not set.** Add it in the sidebar or Streamlit Cloud Secrets."
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=claude_key)
+            resp = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=2048,
+                system=system_prompt,
+                messages=api_messages,
+            )
+            return resp.content[0].text
+        except Exception as e:
+            return f"⚠️ Claude API error:\n\n`{e}`"
+
+    elif "Grok" in model_choice:
+        if not grok_key:
+            return "🔑 **Grok API key not set.** Add it in the sidebar or Streamlit Cloud Secrets."
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=grok_key, base_url="https://api.x.ai/v1")
+            resp = client.chat.completions.create(
+                model="grok-3-latest",
+                messages=[{"role": "system", "content": system_prompt}, *api_messages],
+            )
+            return resp.choices[0].message.content
+        except Exception as e:
+            return f"⚠️ Grok API error:\n\n`{e}`"
+
+    return "⚠️ No model selected."
 
 # =============================================================================
 # SIDEBAR — API Keys + Agent Roster
@@ -616,7 +738,7 @@ with tab_tasks:
             st.rerun()
 
 # =============================================================================
-# TAB 3 — CHAT (per-agent memory)
+# TAB 3 — CHAT (per-agent memory + workflows)
 # =============================================================================
 with tab_chat:
     st.markdown('<div class="section-header">AGENT COMMUNICATION</div>', unsafe_allow_html=True)
@@ -637,7 +759,7 @@ with tab_chat:
             key="model_select",
         )
 
-    # Agent info banner
+    # Agent info banner with use cases
     ai = AGENTS[agent_choice]
     dot_class = "status-dot-online" if ai["status"] == "online" else "status-dot-offline"
     chat_count = len(st.session_state.agent_chats[agent_choice])
@@ -646,11 +768,49 @@ with tab_chat:
         f'<span class="{dot_class}"></span> '
         f'<span class="agent-name">{ai["icon"]} {agent_choice}</span> · '
         f'<span class="agent-role">{ai["role"]}</span> · '
-        f'<span style="font-family:Share Tech Mono;font-size:0.75rem;color:var(--text-muted)">'
-        f'{ai["dept"]} · {chat_count} messages in memory</span>'
+        f'<span style="font-family:Share Tech Mono;font-size:0.75rem;color:#94a3b8">'
+        f'{ai["dept"]} · {chat_count} msgs</span><br/>'
+        f'<div style="margin-top:6px;font-family:Rajdhani,sans-serif;font-size:0.82rem;color:#94a3b8">'
+        f'<span style="color:{ai["color"]};font-weight:600">Use for:</span> {ai.get("use_cases", "General chat")}'
+        f'</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
+
+    # ── Workflow selectors (dynamic per agent) ──
+    workflows = ai.get("workflows", {})
+    workflow_selections = {}
+    if workflows:
+        wf_cols = st.columns(len(workflows))
+        for idx, (wf_key, wf_data) in enumerate(workflows.items()):
+            with wf_cols[idx]:
+                workflow_selections[wf_key] = st.selectbox(
+                    wf_data["label"],
+                    wf_data["options"],
+                    key=f"wf_{agent_choice}_{wf_key}",
+                )
+
+    # ── Quick prompt builder ──
+    if workflows:
+        with st.expander("⚡ Quick Prompt Builder", expanded=False):
+            qp_input = st.text_area(
+                "Describe what you need",
+                placeholder=f"Tell {agent_choice} what you want...",
+                height=80,
+                key=f"qp_{agent_choice}",
+            )
+            if st.button(f"🚀 Send to {agent_choice}", key=f"qp_send_{agent_choice}", use_container_width=True):
+                if qp_input:
+                    # Build structured prompt from workflow selections
+                    wf_context_parts = []
+                    for wf_key, wf_val in workflow_selections.items():
+                        label = workflows[wf_key]["label"]
+                        wf_context_parts.append(f"{label}: {wf_val}")
+                    wf_context = " | ".join(wf_context_parts)
+                    structured_prompt = f"[{wf_context}]\n\n{qp_input}"
+                    st.session_state.agent_chats[agent_choice].append({"role": "user", "content": structured_prompt})
+                    st.session_state[f"_pending_wf_{agent_choice}"] = True
+                    st.rerun()
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
@@ -662,7 +822,28 @@ with tab_chat:
                 st.markdown(f'<span class="chat-agent-badge">{ai["icon"]} {agent_choice}</span>', unsafe_allow_html=True)
             st.markdown(msg["content"])
 
-    # Chat input
+    # ── Check if there's a pending workflow message needing a response ──
+    needs_response = (
+        agent_history
+        and agent_history[-1]["role"] == "user"
+        and (
+            st.session_state.get(f"_pending_wf_{agent_choice}", False)
+            or not any(m["role"] == "assistant" for m in agent_history[-1:])
+        )
+    )
+
+    if needs_response and st.session_state.get(f"_pending_wf_{agent_choice}", False):
+        st.session_state[f"_pending_wf_{agent_choice}"] = False
+        with st.chat_message("assistant"):
+            st.markdown(f'<span class="chat-agent-badge">{ai["icon"]} {agent_choice}</span>', unsafe_allow_html=True)
+            with st.spinner(f"{agent_choice} is thinking..."):
+                response_text = _call_llm(
+                    agent_choice, model_choice, claude_api_key, grok_api_key, agent_history
+                )
+                st.markdown(response_text)
+                agent_history.append({"role": "assistant", "content": response_text})
+
+    # ── Regular chat input ──
     if prompt := st.chat_input(f"Message {agent_choice}..."):
         agent_history.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -671,48 +852,9 @@ with tab_chat:
         with st.chat_message("assistant"):
             st.markdown(f'<span class="chat-agent-badge">{ai["icon"]} {agent_choice}</span>', unsafe_allow_html=True)
             with st.spinner(f"{agent_choice} is thinking..."):
-                response_text = None
-                system_prompt = AGENTS[agent_choice]["prompt"]
-                api_messages = [
-                    {"role": m["role"], "content": m["content"]}
-                    for m in agent_history
-                ]
-
-                if "Claude" in model_choice:
-                    if not claude_api_key:
-                        response_text = "🔑 **Claude API key not set.** Add it in the sidebar or Streamlit Cloud Secrets."
-                    else:
-                        try:
-                            import anthropic
-                            client = anthropic.Anthropic(api_key=claude_api_key)
-                            resp = client.messages.create(
-                                model="claude-sonnet-4-20250514",
-                                max_tokens=1024,
-                                system=system_prompt,
-                                messages=api_messages,
-                            )
-                            response_text = resp.content[0].text
-                        except Exception as e:
-                            response_text = f"⚠️ Claude API error:\n\n`{e}`"
-
-                elif "Grok" in model_choice:
-                    if not grok_api_key:
-                        response_text = "🔑 **Grok API key not set.** Add it in the sidebar or Streamlit Cloud Secrets."
-                    else:
-                        try:
-                            from openai import OpenAI
-                            client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
-                            resp = client.chat.completions.create(
-                                model="grok-3-latest",
-                                messages=[
-                                    {"role": "system", "content": system_prompt},
-                                    *api_messages,
-                                ],
-                            )
-                            response_text = resp.choices[0].message.content
-                        except Exception as e:
-                            response_text = f"⚠️ Grok API error:\n\n`{e}`"
-
+                response_text = _call_llm(
+                    agent_choice, model_choice, claude_api_key, grok_api_key, agent_history
+                )
                 st.markdown(response_text)
                 agent_history.append({"role": "assistant", "content": response_text})
 
@@ -904,7 +1046,7 @@ with tab_office:
             f"**Claude API:** {claude_status}  \n"
             f"**Grok API:** {grok_status}  \n"
             f"**Deployment:** Streamlit Cloud  \n"
-            f"**Version:** 3.0"
+            f"**Version:** 3.1"
         )
 
 # =============================================================================
@@ -913,7 +1055,7 @@ with tab_office:
 st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 st.markdown(
     f'<div class="footer-text">'
-    f'AI AGENT HOME BASE · V3.0 · STREAMLIT + PLOTLY · '
+    f'AI AGENT HOME BASE · V3.1 · STREAMLIT + PLOTLY · '
     f'CLAUDE (ANTHROPIC) + GROK (XAI) · '
     f'{datetime.now().strftime("%Y-%m-%d")}'
     f'</div>',
