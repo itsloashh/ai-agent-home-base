@@ -761,9 +761,44 @@ with tab_mission:
             unsafe_allow_html=True,
         )
         st.markdown(st.session_state.daily_briefing)
-        if st.button("🗑️ Clear briefing"):
-            st.session_state.daily_briefing = ""
-            st.rerun()
+        br1, br2 = st.columns(2)
+        with br1:
+            if st.button("📤 Send to Telegram"):
+                try:
+                    import requests
+                    tg_token = ""
+                    tg_chat = ""
+                    try:
+                        tg_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+                        tg_chat = st.secrets.get("TELEGRAM_CHAT_ID", "")
+                    except Exception:
+                        pass
+                    if tg_token and tg_chat:
+                        header = f"🏢 AI AGENT HOME BASE\n📋 Daily Briefing — {datetime.now().strftime('%B %d, %Y')}\n{'─' * 30}\n\n"
+                        msg = header + st.session_state.daily_briefing
+                        # Split if too long
+                        chunks = []
+                        while len(msg) > 4000:
+                            sp = msg.rfind("\n", 0, 4000)
+                            if sp == -1:
+                                sp = 4000
+                            chunks.append(msg[:sp])
+                            msg = msg[sp:]
+                        chunks.append(msg)
+                        for chunk in chunks:
+                            resp = requests.post(
+                                f"https://api.telegram.org/bot{tg_token}/sendMessage",
+                                json={"chat_id": tg_chat, "text": chunk},
+                            )
+                        st.success("✅ Sent to Telegram!")
+                    else:
+                        st.error("⚠️ Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to Streamlit Cloud Secrets.")
+                except Exception as e:
+                    st.error(f"⚠️ Telegram error: {e}")
+        with br2:
+            if st.button("🗑️ Clear briefing"):
+                st.session_state.daily_briefing = ""
+                st.rerun()
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
