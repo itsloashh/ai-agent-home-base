@@ -479,12 +479,12 @@ if "active_agent" not in st.session_state:
     st.session_state.active_agent = "JARVIS"
 if "tasks" not in st.session_state:
     st.session_state.tasks = [
-        {"id": 1, "title": "Build agent-specific chat routing",   "assignee": "CLAWD",    "status": "In Progress", "priority": "High",     "created": "2026-02-21"},
-        {"id": 2, "title": "Write launch announcement thread",    "assignee": "SCRIBE",   "status": "To Do",       "priority": "Medium",   "created": "2026-02-21"},
-        {"id": 3, "title": "Security audit on API key handling",  "assignee": "SENTINEL", "status": "In Progress", "priority": "Critical", "created": "2026-02-21"},
-        {"id": 4, "title": "Research competitor AI dashboards",   "assignee": "ATLAS",    "status": "To Do",       "priority": "Medium",   "created": "2026-02-21"},
-        {"id": 5, "title": "Create demo clip reel from content",  "assignee": "CLIP",     "status": "To Do",       "priority": "Low",      "created": "2026-02-21"},
-        {"id": 6, "title": "Design v2 dashboard mockup",          "assignee": "PIXEL",    "status": "To Do",       "priority": "High",     "created": "2026-02-21"},
+        {"id": 1, "title": "Build agent-specific chat routing",   "assignee": "CLAWD",    "status": "In Progress", "priority": "High",     "created": "2026-02-21", "description": "Implement per-agent chat memory and routing so each agent has its own conversation thread.", "result": ""},
+        {"id": 2, "title": "Write launch announcement thread",    "assignee": "SCRIBE",   "status": "To Do",       "priority": "Medium",   "created": "2026-02-21", "description": "Create a Twitter/X thread announcing the AI Agent Home Base dashboard launch.", "result": ""},
+        {"id": 3, "title": "Security audit on API key handling",  "assignee": "SENTINEL", "status": "In Progress", "priority": "Critical", "created": "2026-02-21", "description": "Review how API keys are stored, transmitted, and used. Flag any vulnerabilities.", "result": ""},
+        {"id": 4, "title": "Research competitor AI dashboards",   "assignee": "ATLAS",    "status": "To Do",       "priority": "Medium",   "created": "2026-02-21", "description": "Find and analyze 5-10 competitor AI agent dashboard products. Summarize features, pricing, and gaps.", "result": ""},
+        {"id": 5, "title": "Create demo clip reel from content",  "assignee": "CLIP",     "status": "To Do",       "priority": "Low",      "created": "2026-02-21", "description": "Take our existing content and identify the best 5-10 short clips for social media promotion.", "result": ""},
+        {"id": 6, "title": "Design v2 dashboard mockup",          "assignee": "PIXEL",    "status": "To Do",       "priority": "High",     "created": "2026-02-21", "description": "Design a polished v2 mockup for the CEO dashboard with improved layout and visual hierarchy.", "result": ""},
     ]
 
 # =============================================================================
@@ -672,17 +672,20 @@ with tab_mission:
             )
 
 # =============================================================================
-# TAB 2 — TASKS
+# TAB 2 — TASKS (with AI orchestration)
 # =============================================================================
 with tab_tasks:
     st.markdown('<div class="section-header">TASK BOARD</div>', unsafe_allow_html=True)
 
+    # ── Add new task ──
     with st.expander("➕ Add New Task", expanded=False):
         with st.form("new_task_form"):
-            fc1, fc2, fc3 = st.columns(3)
+            fc1, fc2 = st.columns(2)
             new_title = fc1.text_input("Task title")
             new_assignee = fc2.selectbox("Assign to", list(AGENTS.keys()))
+            fc3, fc4 = st.columns(2)
             new_priority = fc3.selectbox("Priority", ["Low", "Medium", "High", "Critical"])
+            new_description = fc4.text_input("Brief description (optional)")
             submitted = st.form_submit_button("Create Task")
             if submitted and new_title:
                 new_id = max(t["id"] for t in st.session_state.tasks) + 1 if st.session_state.tasks else 1
@@ -690,28 +693,34 @@ with tab_tasks:
                     "id": new_id, "title": new_title, "assignee": new_assignee,
                     "status": "To Do", "priority": new_priority,
                     "created": datetime.now().strftime("%Y-%m-%d"),
+                    "description": new_description or new_title,
+                    "result": "",
                 })
                 st.rerun()
 
+    # ── Kanban columns ──
     statuses = ["To Do", "In Progress", "Blocked", "Done"]
     status_icons = {"To Do": "📌", "In Progress": "🔄", "Blocked": "🚫", "Done": "✅"}
     priority_colors = {"Low": "#22c55e", "Medium": "#f59e0b", "High": "#f97316", "Critical": "#ef4444"}
+    priority_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
 
     kcols = st.columns(len(statuses))
     for col, status in zip(kcols, statuses):
         with col:
-            count = len([t for t in st.session_state.tasks if t["status"] == status])
-            st.markdown(f"**{status_icons[status]} {status}** ({count})")
             tasks_here = [t for t in st.session_state.tasks if t["status"] == status]
+            tasks_here.sort(key=lambda t: priority_order.get(t["priority"], 99))
+            st.markdown(f"**{status_icons[status]} {status}** ({len(tasks_here)})")
             for t in tasks_here:
                 pcolor = priority_colors.get(t["priority"], "#888")
                 agent_icon = AGENTS.get(t["assignee"], {}).get("icon", "")
+                has_result = "✅" if t.get("result") else ""
                 st.markdown(
                     f'<div class="task-card" style="border-left:3px solid {pcolor}">'
-                    f'<div class="task-title">{t["title"]}</div>'
+                    f'<div class="task-title">{t["title"]} {has_result}</div>'
                     f'<div class="task-meta">'
                     f'{agent_icon} {t["assignee"]} · '
-                    f'<span style="color:{pcolor}">{t["priority"]}</span>'
+                    f'<span style="color:{pcolor}">{t["priority"]}</span> · '
+                    f'{t.get("created", "")}'
                     f'</div></div>',
                     unsafe_allow_html=True,
                 )
@@ -720,22 +729,83 @@ with tab_tasks:
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-header">UPDATE STATUS</div>', unsafe_allow_html=True)
+    # ── Task Actions (update, execute, delete) ──
+    st.markdown('<div class="section-header">TASK ACTIONS</div>', unsafe_allow_html=True)
+
     if st.session_state.tasks:
         task_options = {
             f"#{t['id']} {t['title']} [{t['status']}]": t["id"]
             for t in st.session_state.tasks
         }
-        uc1, uc2, uc3 = st.columns([3, 2, 1])
-        selected_label = uc1.selectbox("Select task", list(task_options.keys()))
-        new_status = uc2.selectbox("Move to", statuses)
-        if uc3.button("Update", use_container_width=True):
-            tid = task_options[selected_label]
-            for t in st.session_state.tasks:
-                if t["id"] == tid:
-                    t["status"] = new_status
-                    break
-            st.rerun()
+        selected_label = st.selectbox("Select task", list(task_options.keys()), key="task_action_select")
+        selected_tid = task_options[selected_label]
+        selected_task = next((t for t in st.session_state.tasks if t["id"] == selected_tid), None)
+
+        if selected_task:
+            # Show task details
+            agent_info = AGENTS.get(selected_task["assignee"], {})
+            pcolor = priority_colors.get(selected_task["priority"], "#888")
+            st.markdown(
+                f'<div class="dept-card" style="border-left:3px solid {pcolor};margin:8px 0">'
+                f'<span class="agent-name">{agent_info.get("icon", "")} {selected_task["assignee"]}</span> · '
+                f'<span style="color:{pcolor};font-family:Orbitron,monospace;font-size:0.7rem">{selected_task["priority"]}</span> · '
+                f'<span class="agent-role">{selected_task["status"]}</span><br/>'
+                f'<div style="margin-top:6px;font-family:Rajdhani,sans-serif;font-size:0.85rem;color:#94a3b8">'
+                f'{selected_task.get("description", selected_task["title"])}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Action buttons row
+            ac1, ac2, ac3, ac4 = st.columns(4)
+            with ac1:
+                new_status = st.selectbox("Move to", statuses, key="task_move_status")
+            with ac2:
+                if st.button("📋 Update Status", use_container_width=True):
+                    selected_task["status"] = new_status
+                    st.rerun()
+            with ac3:
+                if st.button("🤖 Execute with AI", use_container_width=True, type="primary"):
+                    st.session_state[f"_exec_task_{selected_tid}"] = True
+                    st.rerun()
+            with ac4:
+                if st.button("🗑️ Delete Task", use_container_width=True):
+                    st.session_state.tasks = [t for t in st.session_state.tasks if t["id"] != selected_tid]
+                    st.rerun()
+
+            # ── Execute with AI ──
+            if st.session_state.get(f"_exec_task_{selected_tid}", False):
+                st.session_state[f"_exec_task_{selected_tid}"] = False
+                with st.spinner(f"{selected_task['assignee']} is working on this task..."):
+                    exec_prompt = (
+                        f"You have been assigned a task by CEO Loash.\n\n"
+                        f"TASK: {selected_task['title']}\n"
+                        f"DESCRIPTION: {selected_task.get('description', selected_task['title'])}\n"
+                        f"PRIORITY: {selected_task['priority']}\n\n"
+                        f"Complete this task thoroughly. Provide a detailed, actionable deliverable. "
+                        f"Format your output clearly so the CEO can review and use it immediately."
+                    )
+                    exec_history = [{"role": "user", "content": exec_prompt}]
+                    result = _call_llm(
+                        selected_task["assignee"],
+                        "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                        claude_api_key, grok_api_key, exec_history,
+                    )
+                    selected_task["result"] = result
+                    selected_task["status"] = "Done"
+                    st.rerun()
+
+            # ── Show result if exists ──
+            if selected_task.get("result"):
+                st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="section-header">'
+                    f'{agent_info.get("icon", "")} {selected_task["assignee"]} DELIVERABLE</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(selected_task["result"])
+                if st.button("📋 Copy result to clipboard", key=f"copy_result_{selected_tid}"):
+                    st.code(selected_task["result"], language=None)
 
 # =============================================================================
 # TAB 3 — CHAT (per-agent memory + workflows)
@@ -1046,7 +1116,7 @@ with tab_office:
             f"**Claude API:** {claude_status}  \n"
             f"**Grok API:** {grok_status}  \n"
             f"**Deployment:** Streamlit Cloud  \n"
-            f"**Version:** 3.1"
+            f"**Version:** 4.0"
         )
 
 # =============================================================================
@@ -1055,7 +1125,7 @@ with tab_office:
 st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 st.markdown(
     f'<div class="footer-text">'
-    f'AI AGENT HOME BASE · V3.1 · STREAMLIT + PLOTLY · '
+    f'AI AGENT HOME BASE · V4.0 · STREAMLIT + PLOTLY · '
     f'CLAUDE (ANTHROPIC) + GROK (XAI) · '
     f'{datetime.now().strftime("%Y-%m-%d")}'
     f'</div>',
