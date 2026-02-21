@@ -774,7 +774,7 @@ with tab_org:
         agents_html = "".join(agent_chip(n, i) for n, i in agents)
         online = sum(1 for _, i in agents if i["status"] == "online")
         return (
-            f'<div style="background:linear-gradient(180deg, rgba({_hex_to_rgb(color)},0.12) 0%, var(--bg-card) 100%);'
+            f'<div style="background:linear-gradient(180deg, rgba({_hex_to_rgb(color)},0.12) 0%, #111128 100%);'
             f'border:1px solid rgba({_hex_to_rgb(color)},0.3);border-radius:12px;padding:14px;'
             f'border-top:3px solid {color};min-width:0">'
             f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
@@ -790,38 +790,27 @@ with tab_org:
         h = hex_color.lstrip("#")
         return f"{int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)}"
 
-    # ── Render the full org chart as HTML ──
-    org_html = f"""
-    <div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:10px 0">
-
-        <!-- CEO Node -->
-        <div style="background:linear-gradient(135deg, #6366f1, #8b5cf6);border-radius:14px;padding:16px 32px;
-            text-align:center;box-shadow:0 0 30px rgba(99,102,241,0.3);position:relative">
-            <div style="font-size:1.5rem;margin-bottom:2px">👑</div>
-            <div style="font-family:Orbitron,monospace;font-size:1rem;font-weight:800;color:#fff;letter-spacing:2px">LOASH</div>
-            <div style="font-family:Share Tech Mono,monospace;font-size:0.65rem;color:rgba(255,255,255,0.7);letter-spacing:1px">CEO · FOUNDER</div>
-        </div>
-
-        <!-- Connector line -->
-        <div style="width:2px;height:30px;background:linear-gradient(180deg, #8b5cf6, rgba(139,92,246,0.3))"></div>
-
-        <!-- JARVIS Node -->
-        <div style="background:linear-gradient(135deg, #1a1a3e, #252560);border:1px solid rgba(139,92,246,0.4);
-            border-radius:12px;padding:14px 28px;text-align:center;box-shadow:0 0 20px rgba(139,92,246,0.15)">
-            <div style="font-size:1.3rem;margin-bottom:2px">🤖</div>
-            <div style="font-family:Orbitron,monospace;font-size:0.85rem;font-weight:700;color:#8b5cf6;letter-spacing:2px">JARVIS</div>
-            <div style="font-family:Rajdhani,sans-serif;font-size:0.75rem;color:#94a3b8">Chief Strategy Officer</div>
-        </div>
-
-        <!-- Connector line -->
-        <div style="width:2px;height:24px;background:linear-gradient(180deg, rgba(139,92,246,0.3), rgba(139,92,246,0.1))"></div>
-
-        <!-- Branch indicator -->
-        <div style="width:80%;max-width:600px;height:1px;background:linear-gradient(90deg, transparent, rgba(139,92,246,0.4), transparent)"></div>
-
-    </div>
-    """
-    st.markdown(org_html, unsafe_allow_html=True)
+    # ── Render CEO node ──
+    st.markdown(
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:10px 0">'
+        '<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:14px;padding:16px 32px;'
+        'text-align:center;box-shadow:0 0 30px rgba(99,102,241,0.3)">'
+        '<div style="font-size:1.5rem;margin-bottom:2px">👑</div>'
+        '<div style="font-family:Orbitron,monospace;font-size:1rem;font-weight:800;color:#fff;letter-spacing:2px">LOASH</div>'
+        '<div style="font-family:Share Tech Mono,monospace;font-size:0.65rem;color:rgba(255,255,255,0.7);letter-spacing:1px">CEO · FOUNDER</div>'
+        '</div>'
+        '<div style="width:2px;height:30px;background:linear-gradient(180deg,#8b5cf6,rgba(139,92,246,0.3))"></div>'
+        '<div style="background:linear-gradient(135deg,#1a1a3e,#252560);border:1px solid rgba(139,92,246,0.4);'
+        'border-radius:12px;padding:14px 28px;text-align:center;box-shadow:0 0 20px rgba(139,92,246,0.15)">'
+        '<div style="font-size:1.3rem;margin-bottom:2px">🤖</div>'
+        '<div style="font-family:Orbitron,monospace;font-size:0.85rem;font-weight:700;color:#8b5cf6;letter-spacing:2px">JARVIS</div>'
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.75rem;color:#94a3b8">Chief Strategy Officer</div>'
+        '</div>'
+        '<div style="width:2px;height:24px;background:linear-gradient(180deg,rgba(139,92,246,0.3),rgba(139,92,246,0.1))"></div>'
+        '<div style="width:80%;max-width:600px;height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,0.4),transparent)"></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
     # ── Department grid (2 columns) ──
     dept_pairs = [dept_order[i:i+2] for i in range(0, len(dept_order), 2)]
