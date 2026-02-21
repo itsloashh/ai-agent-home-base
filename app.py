@@ -1110,6 +1110,165 @@ with tab_chat:
             st.session_state.agent_chats = {name: [] for name in AGENTS}
             st.rerun()
 
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════
+    # COUNCIL MODE — Structured Decision Pipeline
+    # ══════════════════════════════════════════════════════════════
+    st.markdown('<div class="section-header">🏛️ COUNCIL — DECISION PIPELINE</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.88rem;color:#94a3b8;margin-bottom:12px">'
+        'Submit an idea or decision. The Council processes it through a structured pipeline: '
+        '<span style="color:#22c55e;font-weight:600">GROWTH</span> analyzes the opportunity → '
+        '<span style="color:#ef4444;font-weight:600">SKEPTIC</span> stress-tests it → '
+        '<span style="color:#3b82f6;font-weight:600">RETENTION</span> synthesizes the final plan. '
+        'One cohesive deliverable.</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Pipeline visualization
+    st.markdown(
+        '<div style="display:flex;align-items:center;justify-content:center;gap:0;margin:10px 0 16px;flex-wrap:wrap">'
+        '<div style="background:#111128;border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:6px 14px;text-align:center">'
+        '<div style="font-family:Orbitron,monospace;font-size:0.6rem;color:#22c55e;letter-spacing:1px">STEP 1</div>'
+        '<div style="font-size:0.85rem">📈 GROWTH</div>'
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.7rem;color:#94a3b8">Opportunity</div></div>'
+        '<div style="color:#94a3b8;font-size:1.2rem;margin:0 6px">→</div>'
+        '<div style="background:#111128;border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:6px 14px;text-align:center">'
+        '<div style="font-family:Orbitron,monospace;font-size:0.6rem;color:#ef4444;letter-spacing:1px">STEP 2</div>'
+        '<div style="font-size:0.85rem">🤔 SKEPTIC</div>'
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.7rem;color:#94a3b8">Stress Test</div></div>'
+        '<div style="color:#94a3b8;font-size:1.2rem;margin:0 6px">→</div>'
+        '<div style="background:#111128;border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:6px 14px;text-align:center">'
+        '<div style="font-family:Orbitron,monospace;font-size:0.6rem;color:#3b82f6;letter-spacing:1px">STEP 3</div>'
+        '<div style="font-size:0.85rem">🔄 RETENTION</div>'
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.7rem;color:#94a3b8">Final Plan</div></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Initialize council history
+    if "council_decisions" not in st.session_state:
+        st.session_state.council_decisions = []
+
+    # Council input
+    with st.form("council_form"):
+        council_idea = st.text_area(
+            "Your idea or decision",
+            placeholder="e.g. Launch a free tier for our product, Pivot to B2B, Add a referral program, Raise prices by 20%...",
+            height=80,
+            key="council_idea",
+        )
+        council_context = st.text_input(
+            "Additional context (optional)",
+            placeholder="Any constraints, goals, timeline, or background info...",
+            key="council_context",
+        )
+        council_model = st.selectbox("Model", ["Claude (Anthropic)", "Grok (xAI)"], key="council_model")
+        council_submit = st.form_submit_button("🏛️ Run Decision Pipeline", use_container_width=True)
+
+    if council_submit and council_idea:
+        context_block = f"\nAdditional context from CEO: {council_context}" if council_context else ""
+
+        decision = {"idea": council_idea, "context": council_context, "steps": {}}
+
+        # ── STEP 1: GROWTH — Opportunity Analysis ──
+        st.markdown(
+            '<div class="dept-card" style="border-left:3px solid #22c55e;margin:8px 0">'
+            '<span class="agent-name">📈 STEP 1: GROWTH — Opportunity Analysis</span></div>',
+            unsafe_allow_html=True,
+        )
+        with st.spinner("📈 GROWTH is analyzing the opportunity..."):
+            growth_prompt = (
+                f"CEO Loash has submitted an idea to the Advisory Council for structured evaluation.\n\n"
+                f"THE IDEA: {council_idea}{context_block}\n\n"
+                f"As GROWTH (Growth Advisor), your job is STEP 1 of the decision pipeline.\n"
+                f"Analyze this idea purely from a GROWTH perspective:\n"
+                f"- What is the growth opportunity here? How big could this be?\n"
+                f"- What are the best-case scenarios for user acquisition, revenue, or market position?\n"
+                f"- What growth levers does this unlock?\n"
+                f"- What data or signals support this direction?\n"
+                f"- Propose an aggressive but realistic growth thesis.\n\n"
+                f"Be specific, data-minded, and actionable. 3-4 paragraphs max."
+            )
+            growth_result = _call_llm("GROWTH", council_model, claude_api_key, grok_api_key,
+                                       [{"role": "user", "content": growth_prompt}])
+            decision["steps"]["GROWTH"] = growth_result
+            st.markdown(growth_result)
+
+        # ── STEP 2: SKEPTIC — Stress Test ──
+        st.markdown(
+            '<div class="dept-card" style="border-left:3px solid #ef4444;margin:8px 0">'
+            '<span class="agent-name">🤔 STEP 2: SKEPTIC — Stress Test</span></div>',
+            unsafe_allow_html=True,
+        )
+        with st.spinner("🤔 SKEPTIC is stress-testing GROWTH's analysis..."):
+            skeptic_prompt = (
+                f"CEO Loash has submitted an idea to the Advisory Council.\n\n"
+                f"THE IDEA: {council_idea}{context_block}\n\n"
+                f"GROWTH just completed their opportunity analysis. Here is their assessment:\n"
+                f"---\n{growth_result}\n---\n\n"
+                f"As SKEPTIC (Devil's Advocate), your job is STEP 2 of the decision pipeline.\n"
+                f"Stress-test GROWTH's analysis ruthlessly:\n"
+                f"- What are the biggest risks and failure modes?\n"
+                f"- Where is GROWTH being too optimistic or ignoring red flags?\n"
+                f"- What assumptions are unproven? What could go wrong?\n"
+                f"- What's the worst-case scenario?\n"
+                f"- What would need to be true for this to work vs. fail?\n\n"
+                f"Be constructive but brutally honest. Identify the top 3-5 risks. 3-4 paragraphs max."
+            )
+            skeptic_result = _call_llm("SKEPTIC", council_model, claude_api_key, grok_api_key,
+                                        [{"role": "user", "content": skeptic_prompt}])
+            decision["steps"]["SKEPTIC"] = skeptic_result
+            st.markdown(skeptic_result)
+
+        # ── STEP 3: RETENTION — Synthesis & Final Plan ──
+        st.markdown(
+            '<div class="dept-card" style="border-left:3px solid #3b82f6;margin:8px 0">'
+            '<span class="agent-name">🔄 STEP 3: RETENTION — Final Decision Brief</span></div>',
+            unsafe_allow_html=True,
+        )
+        with st.spinner("🔄 RETENTION is synthesizing the final decision brief..."):
+            retention_prompt = (
+                f"CEO Loash has submitted an idea to the Advisory Council.\n\n"
+                f"THE IDEA: {council_idea}{context_block}\n\n"
+                f"The Council has completed two rounds of analysis:\n\n"
+                f"GROWTH's Opportunity Analysis:\n---\n{growth_result}\n---\n\n"
+                f"SKEPTIC's Stress Test:\n---\n{skeptic_result}\n---\n\n"
+                f"As RETENTION (Retention Advisor), your job is STEP 3 — the FINAL step of the decision pipeline.\n"
+                f"You have the full picture. Synthesize everything into ONE structured decision brief:\n\n"
+                f"1. **VERDICT** — Should we proceed? (Go / No-Go / Go with modifications)\n"
+                f"2. **RECOMMENDED APPROACH** — The specific strategy that balances growth opportunity against the risks identified\n"
+                f"3. **KEY MITIGATIONS** — How to address SKEPTIC's top concerns\n"
+                f"4. **ACTION STEPS** — Exactly what to do next, in order, with who should own each step\n"
+                f"5. **SUCCESS METRICS** — How we'll know this is working\n\n"
+                f"This is the deliverable the CEO will act on. Make it clear, decisive, and actionable."
+            )
+            retention_result = _call_llm("RETENTION", council_model, claude_api_key, grok_api_key,
+                                          [{"role": "user", "content": retention_prompt}])
+            decision["steps"]["RETENTION"] = retention_result
+            st.markdown(retention_result)
+
+        st.session_state.council_decisions.append(decision)
+        st.success("✅ Council decision pipeline complete. Final brief delivered above.")
+
+    # ── Previous decisions ──
+    if st.session_state.council_decisions:
+        st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">📁 PREVIOUS DECISIONS</div>', unsafe_allow_html=True)
+        for i, dec in enumerate(reversed(st.session_state.council_decisions)):
+            with st.expander(f"Decision #{len(st.session_state.council_decisions) - i}: {dec['idea'][:80]}"):
+                st.markdown("**📈 GROWTH — Opportunity:**")
+                st.markdown(dec["steps"].get("GROWTH", "_pending_"))
+                st.markdown("**🤔 SKEPTIC — Stress Test:**")
+                st.markdown(dec["steps"].get("SKEPTIC", "_pending_"))
+                st.markdown("**🔄 RETENTION — Final Brief:**")
+                st.markdown(dec["steps"].get("RETENTION", "_pending_"))
+
+        if st.button("🗑️ Clear all decisions"):
+            st.session_state.council_decisions = []
+            st.rerun()
+
 # =============================================================================
 # TAB 4 — ORG CHART (Pure HTML/CSS hierarchy)
 # =============================================================================
