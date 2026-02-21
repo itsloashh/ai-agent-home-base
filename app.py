@@ -734,129 +734,102 @@ with tab_chat:
             st.rerun()
 
 # =============================================================================
-# TAB 4 — ORG CHART (Top-down hierarchy)
+# TAB 4 — ORG CHART (Pure HTML/CSS hierarchy)
 # =============================================================================
 with tab_org:
     st.markdown('<div class="section-header">ORGANIZATION HIERARCHY</div>', unsafe_allow_html=True)
 
-    # ── Define the hierarchy as positioned nodes ──
-    # Layer 0 (top): CEO
-    # Layer 1: JARVIS
-    # Layer 2: Departments
-    # Layer 3: Agents within departments
-
-    dept_order = ["COUNCIL", "RESEARCH", "DEVELOPMENT", "CONTENT", "CREATIVE", "PRODUCT"]
+    # Build department → agents mapping
     dept_agents_map = {}
     for aname, ainfo in AGENTS.items():
         if aname == "JARVIS":
             continue
-        dept_agents_map.setdefault(ainfo["dept"], []).append(aname)
+        dept_agents_map.setdefault(ainfo["dept"], []).append((aname, ainfo))
 
-    # Node positions: {label: (x, y)}  — y=0 is top
-    nodes = {}
-    node_colors = {}
-    node_labels = {}
-    node_hovers = {}
-    edges = []
+    dept_order = ["COUNCIL", "DEVELOPMENT", "RESEARCH", "CONTENT", "CREATIVE", "PRODUCT"]
 
-    # Layer 0: CEO
-    nodes["CEO"] = (0, 0)
-    node_colors["CEO"] = "#6366f1"
-    node_labels["CEO"] = "👑 LOASH"
-    node_hovers["CEO"] = "Loash · CEO · Founder"
-
-    # Layer 1: JARVIS
-    nodes["JARVIS"] = (0, -1)
-    node_colors["JARVIS"] = "#8b5cf6"
-    node_labels["JARVIS"] = "🤖 JARVIS"
-    node_hovers["JARVIS"] = "JARVIS · Chief Strategy Officer · EXECUTIVE"
-    edges.append(("CEO", "JARVIS"))
-
-    # Layer 2: Departments — spread evenly
-    n_depts = len(dept_order)
-    dept_spread = 2.0
-    for i, dept in enumerate(dept_order):
-        x = (i - (n_depts - 1) / 2) * dept_spread
-        nodes[dept] = (x, -2.5)
-        node_colors[dept] = DEPARTMENTS.get(dept, {}).get("color", "#666")
-        node_labels[dept] = dept
-        members = dept_agents_map.get(dept, [])
-        node_hovers[dept] = f"{DEPARTMENTS.get(dept, {}).get('label', dept)} · {len(members)} agent(s)"
-        edges.append(("JARVIS", dept))
-
-        # Layer 3: Agents under this department
-        agents_in_dept = dept_agents_map.get(dept, [])
-        n_agents = len(agents_in_dept)
-        for j, agent_name in enumerate(agents_in_dept):
-            ax = x + (j - (n_agents - 1) / 2) * 0.9
-            nodes[agent_name] = (ax, -4.0)
-            node_colors[agent_name] = AGENTS[agent_name]["color"]
-            node_labels[agent_name] = f"{AGENTS[agent_name]['icon']} {agent_name}"
-            ainfo = AGENTS[agent_name]
-            node_hovers[agent_name] = f"{agent_name} · {ainfo['role']} · {ainfo['dept']} · {'Online' if ainfo['status']=='online' else 'Offline'}"
-            edges.append((dept, agent_name))
-
-    # ── Build edge traces ──
-    edge_x, edge_y = [], []
-    for src, tgt in edges:
-        x0, y0 = nodes[src]
-        x1, y1 = nodes[tgt]
-        edge_x += [x0, x1, None]
-        edge_y += [y0, y1, None]
-
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y, mode="lines",
-        line=dict(width=1.5, color="rgba(139, 92, 246, 0.35)"),
-        hoverinfo="none",
-    )
-
-    # ── Build node traces by layer for different sizes ──
-    def make_trace(keys, size, symbol="circle"):
-        return go.Scatter(
-            x=[nodes[k][0] for k in keys],
-            y=[nodes[k][1] for k in keys],
-            mode="markers+text",
-            text=[node_labels[k] for k in keys],
-            textposition="bottom center",
-            textfont=dict(size=11, color="white", family="Rajdhani"),
-            marker=dict(
-                size=size,
-                color=[node_colors[k] for k in keys],
-                symbol=symbol,
-                line=dict(width=2, color="#0a0a1a"),
-            ),
-            hovertext=[node_hovers[k] for k in keys],
-            hoverinfo="text",
+    # Build agent HTML for each department
+    def agent_chip(name, info):
+        if info["status"] == "online":
+            dot = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e;margin-right:4px"></span>'
+        else:
+            dot = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;margin-right:4px"></span>'
+        return (
+            f'<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);'
+            f'border-radius:8px;padding:8px 10px;margin:4px 0;display:flex;align-items:center;gap:6px">'
+            f'{dot}'
+            f'<span style="font-size:1rem">{info["icon"]}</span>'
+            f'<div>'
+            f'<div style="font-family:Orbitron,monospace;font-size:0.65rem;font-weight:600;color:#fff;letter-spacing:1px">{name}</div>'
+            f'<div style="font-family:Rajdhani,sans-serif;font-size:0.72rem;color:#94a3b8">{info["role"]}</div>'
+            f'</div>'
+            f'</div>'
         )
 
-    # CEO + JARVIS (large diamonds)
-    top_trace = make_trace(["CEO", "JARVIS"], 30, "diamond")
-    # Departments (medium squares)
-    dept_trace = make_trace(dept_order, 22, "square")
-    # Agents (small circles)
-    agent_keys = [k for k in nodes if k not in ["CEO", "JARVIS"] and k not in dept_order]
-    agent_trace = make_trace(agent_keys, 14, "circle")
+    def dept_block(dept_key):
+        dept_info = DEPARTMENTS.get(dept_key, {})
+        color = dept_info.get("color", "#666")
+        label = dept_info.get("label", dept_key)
+        agents = dept_agents_map.get(dept_key, [])
+        agents_html = "".join(agent_chip(n, i) for n, i in agents)
+        online = sum(1 for _, i in agents if i["status"] == "online")
+        return (
+            f'<div style="background:linear-gradient(180deg, rgba({_hex_to_rgb(color)},0.12) 0%, var(--bg-card) 100%);'
+            f'border:1px solid rgba({_hex_to_rgb(color)},0.3);border-radius:12px;padding:14px;'
+            f'border-top:3px solid {color};min-width:0">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+            f'<span style="font-family:Orbitron,monospace;font-size:0.7rem;font-weight:700;color:{color};letter-spacing:2px">{label.upper()}</span>'
+            f'<span style="font-family:Share Tech Mono,monospace;font-size:0.65rem;color:#94a3b8">{online}/{len(agents)}</span>'
+            f'</div>'
+            f'{agents_html}'
+            f'</div>'
+        )
 
-    fig = go.Figure(
-        data=[edge_trace, top_trace, dept_trace, agent_trace],
-        layout=go.Layout(
-            showlegend=False,
-            hovermode="closest",
-            margin=dict(l=20, r=20, t=20, b=20),
-            height=520,
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, fixedrange=True),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, fixedrange=True),
-            font=dict(color="white"),
-        ),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown(
-        '<div style="text-align:center;font-family:Share Tech Mono;font-size:0.75rem;color:var(--text-muted);margin-top:-10px">'
-        '💎 Leadership &nbsp;·&nbsp; ◼ Department &nbsp;·&nbsp; ● Agent &nbsp;—&nbsp; hover for details</div>',
-        unsafe_allow_html=True,
-    )
+    # Helper: hex color to r,g,b string
+    def _hex_to_rgb(hex_color):
+        h = hex_color.lstrip("#")
+        return f"{int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)}"
+
+    # ── Render the full org chart as HTML ──
+    org_html = f"""
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:10px 0">
+
+        <!-- CEO Node -->
+        <div style="background:linear-gradient(135deg, #6366f1, #8b5cf6);border-radius:14px;padding:16px 32px;
+            text-align:center;box-shadow:0 0 30px rgba(99,102,241,0.3);position:relative">
+            <div style="font-size:1.5rem;margin-bottom:2px">👑</div>
+            <div style="font-family:Orbitron,monospace;font-size:1rem;font-weight:800;color:#fff;letter-spacing:2px">LOASH</div>
+            <div style="font-family:Share Tech Mono,monospace;font-size:0.65rem;color:rgba(255,255,255,0.7);letter-spacing:1px">CEO · FOUNDER</div>
+        </div>
+
+        <!-- Connector line -->
+        <div style="width:2px;height:30px;background:linear-gradient(180deg, #8b5cf6, rgba(139,92,246,0.3))"></div>
+
+        <!-- JARVIS Node -->
+        <div style="background:linear-gradient(135deg, #1a1a3e, #252560);border:1px solid rgba(139,92,246,0.4);
+            border-radius:12px;padding:14px 28px;text-align:center;box-shadow:0 0 20px rgba(139,92,246,0.15)">
+            <div style="font-size:1.3rem;margin-bottom:2px">🤖</div>
+            <div style="font-family:Orbitron,monospace;font-size:0.85rem;font-weight:700;color:#8b5cf6;letter-spacing:2px">JARVIS</div>
+            <div style="font-family:Rajdhani,sans-serif;font-size:0.75rem;color:#94a3b8">Chief Strategy Officer</div>
+        </div>
+
+        <!-- Connector line -->
+        <div style="width:2px;height:24px;background:linear-gradient(180deg, rgba(139,92,246,0.3), rgba(139,92,246,0.1))"></div>
+
+        <!-- Branch indicator -->
+        <div style="width:80%;max-width:600px;height:1px;background:linear-gradient(90deg, transparent, rgba(139,92,246,0.4), transparent)"></div>
+
+    </div>
+    """
+    st.markdown(org_html, unsafe_allow_html=True)
+
+    # ── Department grid (2 columns) ──
+    dept_pairs = [dept_order[i:i+2] for i in range(0, len(dept_order), 2)]
+    for pair in dept_pairs:
+        cols = st.columns(len(pair))
+        for col, dept_key in zip(cols, pair):
+            with col:
+                st.markdown(dept_block(dept_key), unsafe_allow_html=True)
 
 # =============================================================================
 # TAB 5 — OFFICE
