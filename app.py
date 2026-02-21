@@ -668,6 +668,105 @@ with tab_mission:
                 unsafe_allow_html=True,
             )
 
+    # ── Daily Briefing ──
+    if "daily_briefing" not in st.session_state:
+        st.session_state.daily_briefing = ""
+
+    db1, db2 = st.columns([3, 1])
+    with db1:
+        st.markdown(
+            '<div style="font-family:Rajdhani,sans-serif;font-size:0.88rem;color:#94a3b8;margin:8px 0">'
+            '🤖 <span style="color:#8b5cf6;font-weight:600">JARVIS</span> will analyze your team status, '
+            'tasks, and priorities to generate an executive briefing.</div>',
+            unsafe_allow_html=True,
+        )
+    with db2:
+        run_briefing = st.button("📋 Daily Briefing", use_container_width=True, type="primary")
+
+    if run_briefing:
+        with st.spinner("🤖 JARVIS is preparing your daily briefing..."):
+            # Build real context from dashboard state
+            online_names = ", ".join(n for n, a in AGENTS.items() if a["status"] == "online")
+            offline_names = ", ".join(n for n, a in AGENTS.items() if a["status"] != "online") or "None"
+            tasks_todo = [t for t in st.session_state.tasks if t["status"] == "To Do"]
+            tasks_progress = [t for t in st.session_state.tasks if t["status"] == "In Progress"]
+            tasks_blocked = [t for t in st.session_state.tasks if t["status"] == "Blocked"]
+            tasks_done = [t for t in st.session_state.tasks if t["status"] == "Done"]
+            tasks_critical = [t for t in st.session_state.tasks if t["priority"] == "Critical"]
+
+            task_summary = ""
+            if tasks_critical:
+                task_summary += f"CRITICAL TASKS ({len(tasks_critical)}):\n"
+                for t in tasks_critical:
+                    task_summary += f"  - {t['title']} (assigned: {t['assignee']}, status: {t['status']})\n"
+            if tasks_progress:
+                task_summary += f"IN PROGRESS ({len(tasks_progress)}):\n"
+                for t in tasks_progress:
+                    task_summary += f"  - {t['title']} (assigned: {t['assignee']})\n"
+            if tasks_todo:
+                task_summary += f"TO DO ({len(tasks_todo)}):\n"
+                for t in tasks_todo:
+                    task_summary += f"  - {t['title']} (assigned: {t['assignee']}, priority: {t['priority']})\n"
+            if tasks_blocked:
+                task_summary += f"BLOCKED ({len(tasks_blocked)}):\n"
+                for t in tasks_blocked:
+                    task_summary += f"  - {t['title']} (assigned: {t['assignee']})\n"
+            if tasks_done:
+                task_summary += f"COMPLETED ({len(tasks_done)}):\n"
+                for t in tasks_done:
+                    task_summary += f"  - {t['title']} (assigned: {t['assignee']})\n"
+
+            agent_activity = ""
+            for name in AGENTS:
+                ct = len(st.session_state.agent_chats.get(name, []))
+                if ct > 0:
+                    agent_activity += f"  - {name}: {ct} messages exchanged\n"
+
+            council_ct = len(st.session_state.get("council_decisions", []))
+
+            briefing_prompt = (
+                f"You are JARVIS, Chief Strategy Officer. Generate a daily executive briefing for CEO Loash.\n\n"
+                f"CURRENT DASHBOARD STATE:\n"
+                f"- Date: {datetime.now().strftime('%A, %B %d %Y, %I:%M %p')}\n"
+                f"- Agents Online: {online_count}/{len(AGENTS)} ({online_names})\n"
+                f"- Agents Offline: {offline_names}\n"
+                f"- Total Tasks: {len(st.session_state.tasks)}\n"
+                f"- Total Messages This Session: {total_msgs}\n"
+                f"- Council Decisions Made: {council_ct}\n\n"
+                f"TASK BREAKDOWN:\n{task_summary}\n"
+                f"AGENT ACTIVITY:\n{agent_activity if agent_activity else '  No conversations this session yet.'}\n\n"
+                f"Generate a structured executive briefing with:\n"
+                f"1. **STATUS OVERVIEW** — Quick snapshot of where things stand\n"
+                f"2. **PRIORITY ACTIONS** — What needs CEO attention right now (most urgent first)\n"
+                f"3. **TEAM UTILIZATION** — Which agents are being used, which are underutilized\n"
+                f"4. **RECOMMENDATIONS** — What JARVIS recommends the CEO focus on today\n"
+                f"5. **BLOCKERS & RISKS** — Anything that could slow progress\n\n"
+                f"Be concise, executive-level, and actionable. Address the CEO as Loash."
+            )
+            briefing_result = _call_llm(
+                "JARVIS",
+                "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                claude_api_key, grok_api_key,
+                [{"role": "user", "content": briefing_prompt}],
+            )
+            st.session_state.daily_briefing = briefing_result
+
+    if st.session_state.daily_briefing:
+        st.markdown(
+            '<div class="dept-card" style="border-left:3px solid #8b5cf6;margin:12px 0">'
+            '<span class="agent-name">🤖 JARVIS — DAILY BRIEFING</span><br/>'
+            '<span style="font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#94a3b8">'
+            f'{datetime.now().strftime("%B %d %Y")}</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(st.session_state.daily_briefing)
+        if st.button("🗑️ Clear briefing"):
+            st.session_state.daily_briefing = ""
+            st.rerun()
+
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
     # ── Expandable metric details ──
     with st.expander("🟢 Agents Online — click to view details"):
         oc1, oc2 = st.columns(2)
