@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 # =============================================================================
-# PAGE CONFIG (must be first Streamlit command)
+# PAGE CONFIG
 # =============================================================================
 st.set_page_config(
     page_title="AI Agent Home Base - CEO View",
@@ -13,7 +13,341 @@ st.set_page_config(
 )
 
 # =============================================================================
-# AGENT DATABASE — single source of truth for all agents
+# CUSTOM CSS — Futuristic Dark Theme
+# =============================================================================
+st.markdown("""
+<style>
+/* ── Import fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ── Root variables ── */
+:root {
+    --bg-primary: #0a0a1a;
+    --bg-card: #111128;
+    --bg-card-hover: #1a1a3e;
+    --border-glow: rgba(99, 102, 241, 0.3);
+    --text-primary: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent-purple: #8b5cf6;
+    --accent-blue: #3b82f6;
+    --accent-cyan: #06b6d4;
+    --accent-green: #22c55e;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --accent-pink: #ec4899;
+    --glow-purple: 0 0 20px rgba(139, 92, 246, 0.3);
+    --glow-green: 0 0 12px rgba(34, 197, 94, 0.4);
+    --glow-red: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* ── Global overrides ── */
+.stApp {
+    background: linear-gradient(165deg, #0a0a1a 0%, #0d0d2b 40%, #0a0a1a 100%);
+}
+
+/* ── Main title styling ── */
+.ceo-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 50%, #8b5cf6 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 3s ease-in-out infinite;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+}
+@keyframes shimmer {
+    0%, 100% { background-position: 0% center; }
+    50% { background-position: 200% center; }
+}
+.ceo-subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+}
+
+/* ── Metric cards ── */
+.metric-card {
+    background: linear-gradient(135deg, var(--bg-card) 0%, #161640 100%);
+    border: 1px solid var(--border-glow);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-purple), transparent);
+}
+.metric-card:hover {
+    border-color: var(--accent-purple);
+    box-shadow: var(--glow-purple);
+    transform: translateY(-2px);
+}
+.metric-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 8px 0 4px;
+}
+.metric-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 500;
+}
+
+/* ── Department cards ── */
+.dept-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+}
+.dept-card:hover {
+    background: var(--bg-card-hover);
+    transform: translateX(4px);
+}
+.dept-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+.dept-members {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.dept-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    float: right;
+    opacity: 0.7;
+}
+
+/* ── Agent cards (Office tab) ── */
+.agent-office-card {
+    background: linear-gradient(145deg, var(--bg-card) 0%, #13133a 100%);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+.agent-office-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(139,92,246,0.3), transparent);
+}
+.agent-office-card:hover {
+    border-color: rgba(139,92,246,0.4);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transform: translateY(-2px);
+}
+.agent-icon-large {
+    font-size: 1.6rem;
+    margin-bottom: 6px;
+}
+.agent-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 1px;
+}
+.agent-role {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.agent-dept-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: white;
+    margin-top: 8px;
+    letter-spacing: 1px;
+}
+
+/* ── Status dots ── */
+.status-dot-online {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: var(--glow-green);
+    animation: pulse-green 2s ease-in-out infinite;
+}
+.status-dot-offline {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent-red);
+    box-shadow: var(--glow-red);
+}
+.status-dot-idle {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent-amber);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+@keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+    50% { box-shadow: 0 0 16px rgba(34, 197, 94, 0.7); }
+}
+
+/* ── Sidebar styling ── */
+.sidebar-agent {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+}
+.sidebar-agent:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(139,92,246,0.3);
+    transform: translateX(3px);
+}
+.sidebar-agent-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 1px;
+}
+.sidebar-agent-role {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.sidebar-agent-dept {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    opacity: 0.45;
+    letter-spacing: 1px;
+}
+
+/* ── Task cards ── */
+.task-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s ease;
+}
+.task-card:hover {
+    background: var(--bg-card-hover);
+    transform: translateY(-1px);
+}
+.task-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+}
+.task-meta {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ── Chat agent label ── */
+.chat-agent-badge {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    opacity: 0.7;
+}
+
+/* ── Section headers ── */
+.section-header {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent-purple);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* ── Quick action buttons ── */
+.stButton > button {
+    font-family: 'Rajdhani', sans-serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+    border: 1px solid rgba(139,92,246,0.3) !important;
+    transition: all 0.25s ease !important;
+}
+.stButton > button:hover {
+    border-color: var(--accent-purple) !important;
+    box-shadow: var(--glow-purple) !important;
+}
+
+/* ── Tab styling ── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+}
+.stTabs [data-baseweb="tab"] {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+/* ── Footer ── */
+.footer-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-align: center;
+    opacity: 0.5;
+}
+
+/* ── Divider glow ── */
+.glow-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(139,92,246,0.4), rgba(6,182,212,0.3), transparent);
+    margin: 24px 0;
+    border: none;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =============================================================================
+# AGENT DATABASE
 # =============================================================================
 AGENTS = {
     "JARVIS":    {"role": "Chief Strategy Officer",  "dept": "EXECUTIVE",   "status": "online",  "icon": "🤖", "color": "#8b5cf6",
@@ -55,10 +389,10 @@ DEPARTMENTS = {
 }
 
 # =============================================================================
-# SESSION STATE INIT
+# SESSION STATE — Per-agent chat memory
 # =============================================================================
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if "agent_chats" not in st.session_state:
+    st.session_state.agent_chats = {name: [] for name in AGENTS}
 if "active_agent" not in st.session_state:
     st.session_state.active_agent = "JARVIS"
 if "tasks" not in st.session_state:
@@ -75,8 +409,8 @@ if "tasks" not in st.session_state:
 # SIDEBAR — API Keys + Agent Roster
 # =============================================================================
 with st.sidebar:
-    st.markdown("## 🔑 API Keys")
-    st.caption("Keys stay in your browser session only — never saved to disk.")
+    st.markdown('<div class="section-header">🔑 API KEYS</div>', unsafe_allow_html=True)
+    st.caption("Keys stay in your browser session only.")
 
     default_claude_key = ""
     default_grok_key = ""
@@ -89,59 +423,68 @@ with st.sidebar:
     except Exception:
         pass
 
-    claude_api_key = st.text_input(
-        "Anthropic (Claude) API Key",
-        value=default_claude_key,
-        type="password",
-        help="Starts with sk-ant-...",
-    )
-    grok_api_key = st.text_input(
-        "xAI (Grok) API Key",
-        value=default_grok_key,
-        type="password",
-        help="Starts with xai-...",
-    )
+    claude_api_key = st.text_input("Anthropic (Claude)", value=default_claude_key, type="password", help="sk-ant-...")
+    grok_api_key = st.text_input("xAI (Grok)", value=default_grok_key, type="password", help="xai-...")
 
-    if claude_api_key:
-        st.success("✅ Claude key loaded")
-    else:
-        st.warning("⚠️ Claude key missing")
-    if grok_api_key:
-        st.success("✅ Grok key loaded")
-    else:
-        st.warning("⚠️ Grok key missing")
+    k1, k2 = st.columns(2)
+    with k1:
+        if claude_api_key:
+            st.success("✅ Claude")
+        else:
+            st.warning("⚠️ Claude")
+    with k2:
+        if grok_api_key:
+            st.success("✅ Grok")
+        else:
+            st.warning("⚠️ Grok")
 
-    st.markdown("---")
-    st.markdown("## 🤖 Agent Roster")
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
     online_total = sum(1 for a in AGENTS.values() if a["status"] == "online")
-    st.caption(f"{online_total}/{len(AGENTS)} online")
+    st.markdown(
+        f'<div class="section-header">🤖 AGENT ROSTER'
+        f'<span style="float:right;font-family:Share Tech Mono;font-size:0.75rem;color:#22c55e">'
+        f'{online_total}/{len(AGENTS)} ONLINE</span></div>',
+        unsafe_allow_html=True,
+    )
 
     for name, info in AGENTS.items():
         if info["status"] == "online":
-            dot = "🟢"
+            dot_class = "status-dot-online"
         elif info["status"] == "idle":
-            dot = "🟡"
+            dot_class = "status-dot-idle"
         else:
-            dot = "🔴"
+            dot_class = "status-dot-offline"
+
+        msg_count = len(st.session_state.agent_chats.get(name, []))
+        msg_badge = f' · <span style="color:#8b5cf6">{msg_count} msgs</span>' if msg_count > 0 else ""
+
         st.markdown(
-            f"{dot} **{name}** — {info['role']}  \n"
-            f"<small style='opacity:0.55'>{info['dept']}</small>",
+            f'<div class="sidebar-agent">'
+            f'<span class="{dot_class}"></span> '
+            f'<span class="sidebar-agent-name">{name}</span>{msg_badge}<br/>'
+            f'<span class="sidebar-agent-role">{info["role"]}</span><br/>'
+            f'<span class="sidebar-agent-dept">{info["dept"]}</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
 # =============================================================================
 # MAIN TITLE
 # =============================================================================
-st.title("🏢 AI Agent Team — CEO Dashboard")
-st.caption(
-    f"**You (Loash)** are CEO · {datetime.now().strftime('%A, %B %d %Y · %I:%M %p')}"
+st.markdown('<div class="ceo-title">AI AGENT HOME BASE</div>', unsafe_allow_html=True)
+st.markdown(
+    f'<div class="ceo-subtitle">CEO DASHBOARD · LOASH · '
+    f'{datetime.now().strftime("%A %B %d %Y · %H:%M").upper()}</div>',
+    unsafe_allow_html=True,
 )
+st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
 # =============================================================================
-# TABS — all 5 from the master plan
+# TABS
 # =============================================================================
 tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
-    ["🎯 Mission Control", "📋 Tasks", "💬 Chat", "🏗️ Org Chart", "🏠 Office"]
+    ["🎯 MISSION CONTROL", "📋 TASKS", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
 )
 
 # =============================================================================
@@ -152,15 +495,29 @@ with tab_mission:
     active_tasks = sum(1 for t in st.session_state.tasks if t["status"] == "In Progress")
     critical_count = sum(1 for t in st.session_state.tasks if t["priority"] == "Critical")
     done_count = sum(1 for t in st.session_state.tasks if t["status"] == "Done")
+    total_msgs = sum(len(v) for v in st.session_state.agent_chats.values())
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("🟢 Agents Online", f"{online_count} / {len(AGENTS)}")
-    m2.metric("🔄 Tasks Active", str(active_tasks))
-    m3.metric("⚠️ Critical", str(critical_count))
-    m4.metric("✅ Completed", str(done_count))
+    metrics = [
+        ("🟢", str(online_count), f"/ {len(AGENTS)}", "AGENTS ONLINE", "--accent-green"),
+        ("🔄", str(active_tasks), "", "TASKS ACTIVE", "--accent-blue"),
+        ("⚠️", str(critical_count), "", "CRITICAL", "--accent-red"),
+        ("✅", str(done_count), "", "COMPLETED", "--accent-green"),
+        ("💬", str(total_msgs), "", "MESSAGES", "--accent-purple"),
+    ]
+    mcols = st.columns(len(metrics))
+    for col, (icon, val, suffix, label, color) in zip(mcols, metrics):
+        with col:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'<div style="font-size:1.3rem">{icon}</div>'
+                f'<div class="metric-value">{val}<span style="font-size:1rem;opacity:0.5"> {suffix}</span></div>'
+                f'<div class="metric-label">{label}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
-    st.markdown("---")
-    st.subheader("Departments")
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">DEPARTMENTS</div>', unsafe_allow_html=True)
 
     dept_cols = st.columns(4)
     for idx, (dept_key, dept_info) in enumerate(DEPARTMENTS.items()):
@@ -168,31 +525,35 @@ with tab_mission:
         dept_online = sum(1 for n in members if AGENTS[n]["status"] == "online")
         with dept_cols[idx % 4]:
             st.markdown(
-                f'<div style="border-left:4px solid {dept_info["color"]};'
-                f'padding:10px 14px;margin-bottom:12px;background:#1a1a2e;'
-                f'border-radius:0 8px 8px 0">'
-                f'<strong style="color:{dept_info["color"]}">{dept_info["label"]}</strong>'
-                f'<span style="float:right;font-size:0.8rem">{dept_online}/{len(members)}</span>'
-                f'<br/><span style="font-size:0.82rem;opacity:0.7">{", ".join(members)}</span>'
+                f'<div class="dept-card" style="border-left:3px solid {dept_info["color"]}">'
+                f'<span class="dept-name" style="color:{dept_info["color"]}">{dept_info["label"]}</span>'
+                f'<span class="dept-count">{dept_online}/{len(members)}</span>'
+                f'<div class="dept-members">{", ".join(members)}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    st.markdown("---")
-    st.subheader("Active Agents")
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">ACTIVE AGENTS</div>', unsafe_allow_html=True)
 
     card_cols = st.columns(4)
     online_agents = [(n, a) for n, a in AGENTS.items() if a["status"] == "online"]
     for idx, (name, info) in enumerate(online_agents):
         with card_cols[idx % 4]:
-            st.success(f"**{info['icon']} {name}** · 🟢 Active")
-            st.caption(f"{info['role']} — {info['dept']}")
+            st.markdown(
+                f'<div class="agent-office-card" style="border-top:2px solid {info["color"]}">'
+                f'<span class="status-dot-online"></span> '
+                f'<span class="agent-name">{info["icon"]} {name}</span><br/>'
+                f'<span class="agent-role">{info["role"]}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
 # =============================================================================
-# TAB 2 — TASKS (Kanban board)
+# TAB 2 — TASKS
 # =============================================================================
 with tab_tasks:
-    st.subheader("Task Board")
+    st.markdown('<div class="section-header">TASK BOARD</div>', unsafe_allow_html=True)
 
     with st.expander("➕ Add New Task", expanded=False):
         with st.form("new_task_form"):
@@ -217,27 +578,27 @@ with tab_tasks:
     kcols = st.columns(len(statuses))
     for col, status in zip(kcols, statuses):
         with col:
-            st.markdown(f"**{status_icons[status]} {status}**")
+            count = len([t for t in st.session_state.tasks if t["status"] == status])
+            st.markdown(f"**{status_icons[status]} {status}** ({count})")
             tasks_here = [t for t in st.session_state.tasks if t["status"] == status]
             for t in tasks_here:
                 pcolor = priority_colors.get(t["priority"], "#888")
                 agent_icon = AGENTS.get(t["assignee"], {}).get("icon", "")
                 st.markdown(
-                    f'<div style="background:#1e1e2e;border:1px solid #333;'
-                    f'border-radius:8px;padding:10px;margin-bottom:8px;'
-                    f'border-left:3px solid {pcolor}">'
-                    f'<strong>{t["title"]}</strong><br/>'
-                    f'<span style="font-size:0.75rem;opacity:0.7">'
+                    f'<div class="task-card" style="border-left:3px solid {pcolor}">'
+                    f'<div class="task-title">{t["title"]}</div>'
+                    f'<div class="task-meta">'
                     f'{agent_icon} {t["assignee"]} · '
                     f'<span style="color:{pcolor}">{t["priority"]}</span>'
-                    f'</span></div>',
+                    f'</div></div>',
                     unsafe_allow_html=True,
                 )
             if not tasks_here:
-                st.caption("No tasks")
+                st.caption("Empty")
 
-    st.markdown("---")
-    st.subheader("Update Task Status")
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="section-header">UPDATE STATUS</div>', unsafe_allow_html=True)
     if st.session_state.tasks:
         task_options = {
             f"#{t['id']} {t['title']} [{t['status']}]": t["id"]
@@ -255,12 +616,12 @@ with tab_tasks:
             st.rerun()
 
 # =============================================================================
-# TAB 3 — CHAT (agent-specific with Claude / Grok)
+# TAB 3 — CHAT (per-agent memory)
 # =============================================================================
 with tab_chat:
-    st.subheader("Talk to Your AI Team")
+    st.markdown('<div class="section-header">AGENT COMMUNICATION</div>', unsafe_allow_html=True)
 
-    sel1, sel2, sel3 = st.columns([2, 2, 2])
+    sel1, sel2 = st.columns([3, 3])
     with sel1:
         agent_choice = st.selectbox(
             "🤖 Talk to agent",
@@ -275,47 +636,51 @@ with tab_chat:
             ["Claude (Anthropic)", "Grok (xAI)"],
             key="model_select",
         )
-    with sel3:
-        ai = AGENTS[agent_choice]
-        status_txt = "🟢 Online" if ai["status"] == "online" else "🔴 Offline"
-        st.markdown(
-            f"**{ai['icon']} {agent_choice}** — {ai['role']}  \n"
-            f"<small style='opacity:0.6'>{ai['dept']} · {status_txt}</small>",
-            unsafe_allow_html=True,
-        )
 
-    st.markdown("---")
+    # Agent info banner
+    ai = AGENTS[agent_choice]
+    dot_class = "status-dot-online" if ai["status"] == "online" else "status-dot-offline"
+    chat_count = len(st.session_state.agent_chats[agent_choice])
+    st.markdown(
+        f'<div class="dept-card" style="border-left:3px solid {ai["color"]};margin:10px 0">'
+        f'<span class="{dot_class}"></span> '
+        f'<span class="agent-name">{ai["icon"]} {agent_choice}</span> · '
+        f'<span class="agent-role">{ai["role"]}</span> · '
+        f'<span style="font-family:Share Tech Mono;font-size:0.75rem;color:var(--text-muted)">'
+        f'{ai["dept"]} · {chat_count} messages in memory</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-    for msg in st.session_state.chat_history:
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # Display this agent's chat history
+    agent_history = st.session_state.agent_chats[agent_choice]
+    for msg in agent_history:
         with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant" and "agent" in msg:
-                a = msg["agent"]
-                st.caption(f"{AGENTS.get(a, {}).get('icon', '')} {a}")
+            if msg["role"] == "assistant":
+                st.markdown(f'<span class="chat-agent-badge">{ai["icon"]} {agent_choice}</span>', unsafe_allow_html=True)
             st.markdown(msg["content"])
 
+    # Chat input
     if prompt := st.chat_input(f"Message {agent_choice}..."):
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        agent_history.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            st.caption(f"{ai['icon']} {agent_choice}")
+            st.markdown(f'<span class="chat-agent-badge">{ai["icon"]} {agent_choice}</span>', unsafe_allow_html=True)
             with st.spinner(f"{agent_choice} is thinking..."):
                 response_text = None
                 system_prompt = AGENTS[agent_choice]["prompt"]
                 api_messages = [
                     {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.chat_history
+                    for m in agent_history
                 ]
 
                 if "Claude" in model_choice:
                     if not claude_api_key:
-                        response_text = (
-                            "🔑 **Claude API key not set.**\n\n"
-                            "Add it in the sidebar or in Streamlit Cloud → "
-                            "Settings → Secrets:\n\n"
-                            '```toml\nANTHROPIC_API_KEY = "sk-ant-..."\n```'
-                        )
+                        response_text = "🔑 **Claude API key not set.** Add it in the sidebar or Streamlit Cloud Secrets."
                     else:
                         try:
                             import anthropic
@@ -332,19 +697,11 @@ with tab_chat:
 
                 elif "Grok" in model_choice:
                     if not grok_api_key:
-                        response_text = (
-                            "🔑 **Grok API key not set.**\n\n"
-                            "Add it in the sidebar or in Streamlit Cloud → "
-                            "Settings → Secrets:\n\n"
-                            '```toml\nXAI_API_KEY = "xai-..."\n```'
-                        )
+                        response_text = "🔑 **Grok API key not set.** Add it in the sidebar or Streamlit Cloud Secrets."
                     else:
                         try:
                             from openai import OpenAI
-                            client = OpenAI(
-                                api_key=grok_api_key,
-                                base_url="https://api.x.ai/v1",
-                            )
+                            client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
                             resp = client.chat.completions.create(
                                 model="grok-3-latest",
                                 messages=[
@@ -357,28 +714,30 @@ with tab_chat:
                             response_text = f"⚠️ Grok API error:\n\n`{e}`"
 
                 st.markdown(response_text)
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": response_text,
-                    "agent": agent_choice,
-                })
+                agent_history.append({"role": "assistant", "content": response_text})
 
-    cc1, cc2 = st.columns(2)
+    # Chat controls
+    cc1, cc2, cc3 = st.columns(3)
     with cc1:
-        if st.session_state.chat_history and st.button("🗑️ Clear chat"):
-            st.session_state.chat_history = []
+        if agent_history and st.button(f"🗑️ Clear {agent_choice} chat"):
+            st.session_state.agent_chats[agent_choice] = []
             st.rerun()
     with cc2:
-        if st.session_state.chat_history and st.button("📋 Copy last response"):
-            last = [m for m in st.session_state.chat_history if m["role"] == "assistant"]
+        if agent_history and st.button("📋 Copy last response"):
+            last = [m for m in agent_history if m["role"] == "assistant"]
             if last:
                 st.code(last[-1]["content"], language=None)
+    with cc3:
+        total = sum(len(v) for v in st.session_state.agent_chats.values())
+        if total > 0 and st.button("🗑️ Clear ALL agent chats"):
+            st.session_state.agent_chats = {name: [] for name in AGENTS}
+            st.rerun()
 
 # =============================================================================
-# TAB 4 — ORG CHART (Treemap with all agents)
+# TAB 4 — ORG CHART
 # =============================================================================
 with tab_org:
-    st.subheader("Organization Hierarchy")
+    st.markdown('<div class="section-header">ORGANIZATION HIERARCHY</div>', unsafe_allow_html=True)
 
     labels = [
         "Loash (CEO)",
@@ -387,26 +746,18 @@ with tab_org:
         "DEVELOPMENT", "CONTENT", "RESEARCH", "CREATIVE", "PRODUCT",
     ]
     parents = [
-        "",
-        "Loash (CEO)",
-        "Loash (CEO)",
+        "", "Loash (CEO)", "Loash (CEO)",
         "Loash (CEO)", "Loash (CEO)", "Loash (CEO)", "Loash (CEO)", "Loash (CEO)",
     ]
     colors = [
         "#6366f1", "#8b5cf6", "#a78bfa",
         "#3b82f6", "#10b981", "#06b6d4", "#f59e0b", "#ef4444",
     ]
-
     dept_parent_map = {
-        "EXECUTIVE": "Loash (CEO)",
-        "COUNCIL": "COUNCIL (Advisory)",
-        "DEVELOPMENT": "DEVELOPMENT",
-        "CONTENT": "CONTENT",
-        "RESEARCH": "RESEARCH",
-        "CREATIVE": "CREATIVE",
-        "PRODUCT": "PRODUCT",
+        "EXECUTIVE": "Loash (CEO)", "COUNCIL": "COUNCIL (Advisory)",
+        "DEVELOPMENT": "DEVELOPMENT", "CONTENT": "CONTENT",
+        "RESEARCH": "RESEARCH", "CREATIVE": "CREATIVE", "PRODUCT": "PRODUCT",
     }
-
     for name, info in AGENTS.items():
         if name == "JARVIS":
             continue
@@ -416,95 +767,87 @@ with tab_org:
         colors.append(info["color"])
 
     fig = go.Figure(go.Treemap(
-        labels=labels,
-        parents=parents,
-        marker_colors=colors,
+        labels=labels, parents=parents, marker_colors=colors,
         textinfo="label",
         hovertemplate="<b>%{label}</b><extra></extra>",
         pathbar=dict(textfont=dict(size=14)),
     ))
     fig.update_layout(
-        margin=dict(t=30, l=10, r=10, b=10),
-        height=550,
-        paper_bgcolor="#0e1117",
+        margin=dict(t=30, l=10, r=10, b=10), height=550,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=13),
     )
     st.plotly_chart(fig, use_container_width=True)
     st.caption("Click any block to zoom in. Click the header bar to zoom back out.")
 
 # =============================================================================
-# TAB 5 — OFFICE (Team overview + Quick actions)
+# TAB 5 — OFFICE
 # =============================================================================
 with tab_office:
-    st.subheader("🏠 The Office — Team Overview")
+    st.markdown('<div class="section-header">THE OFFICE — TEAM OVERVIEW</div>', unsafe_allow_html=True)
 
     office_cols = st.columns(3)
     for idx, (name, info) in enumerate(AGENTS.items()):
         with office_cols[idx % 3]:
             if info["status"] == "online":
-                border_color = "#22c55e"
-                status_label = "🟢 Online"
+                dot_html = '<span class="status-dot-online"></span>'
+                status_label = "ONLINE"
             elif info["status"] == "idle":
-                border_color = "#f59e0b"
-                status_label = "🟡 Idle"
+                dot_html = '<span class="status-dot-idle"></span>'
+                status_label = "IDLE"
             else:
-                border_color = "#ef4444"
-                status_label = "🔴 Offline"
+                dot_html = '<span class="status-dot-offline"></span>'
+                status_label = "OFFLINE"
+
+            msg_count = len(st.session_state.agent_chats.get(name, []))
             dept_color = DEPARTMENTS.get(info["dept"], {}).get("color", "#666")
+
             st.markdown(
-                f'<div style="background:#1a1a2e;border:1px solid #333;'
-                f'border-radius:12px;padding:16px;margin-bottom:12px;'
-                f'border-top:3px solid {border_color}">'
-                f'<div style="font-size:1.4rem;margin-bottom:4px">{info["icon"]}</div>'
-                f'<strong style="font-size:1.1rem">{name}</strong>'
-                f'<span style="float:right;font-size:0.8rem">{status_label}</span><br/>'
-                f'<span style="opacity:0.7">{info["role"]}</span><br/>'
-                f'<span style="display:inline-block;background:{dept_color};'
-                f'color:white;padding:2px 10px;border-radius:12px;font-size:0.7rem;'
-                f'margin-top:6px;font-weight:600">{info["dept"]}</span>'
+                f'<div class="agent-office-card" style="border-top:2px solid {dept_color}">'
+                f'<div class="agent-icon-large">{info["icon"]}</div>'
+                f'<span class="agent-name">{name}</span>'
+                f'<span style="float:right;font-family:Share Tech Mono;font-size:0.7rem">'
+                f'{dot_html} {status_label}</span><br/>'
+                f'<span class="agent-role">{info["role"]}</span><br/>'
+                f'<span class="agent-dept-badge" style="background:{dept_color}">{info["dept"]}</span>'
+                f'{f" <span style=&quot;font-family:Share Tech Mono;font-size:0.65rem;color:#8b5cf6;margin-left:8px&quot;>{msg_count} msgs</span>" if msg_count > 0 else ""}'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    st.markdown("---")
-    st.subheader("⚡ Quick Actions")
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">⚡ QUICK ACTIONS</div>', unsafe_allow_html=True)
 
     qa1, qa2, qa3 = st.columns(3)
     with qa1:
-        if st.button("✍️ Draft a post with SCRIBE", use_container_width=True):
+        if st.button("✍️ Draft with SCRIBE", use_container_width=True):
             st.session_state.active_agent = "SCRIBE"
-            st.session_state.chat_history = []
-            st.info("→ Switched to SCRIBE. Go to the **Chat** tab to start writing!")
+            st.info("→ Go to **Chat** tab — SCRIBE is ready.")
     with qa2:
         if st.button("🧑‍💻 Code with CLAWD", use_container_width=True):
             st.session_state.active_agent = "CLAWD"
-            st.session_state.chat_history = []
-            st.info("→ Switched to CLAWD. Go to the **Chat** tab to start coding!")
+            st.info("→ Go to **Chat** tab — CLAWD is ready.")
     with qa3:
-        if st.button("🎬 Clip content with CLIP", use_container_width=True):
+        if st.button("🎬 Clip with CLIP", use_container_width=True):
             st.session_state.active_agent = "CLIP"
-            st.session_state.chat_history = []
-            st.info("→ Switched to CLIP. Go to the **Chat** tab and paste your content!")
+            st.info("→ Go to **Chat** tab — CLIP is ready.")
 
     qa4, qa5, qa6 = st.columns(3)
     with qa4:
         if st.button("🗺️ Research with ATLAS", use_container_width=True):
             st.session_state.active_agent = "ATLAS"
-            st.session_state.chat_history = []
-            st.info("→ Switched to ATLAS. Go to the **Chat** tab to start researching!")
+            st.info("→ Go to **Chat** tab — ATLAS is ready.")
     with qa5:
-        if st.button("🤔 Challenge idea with SKEPTIC", use_container_width=True):
+        if st.button("🤔 Challenge with SKEPTIC", use_container_width=True):
             st.session_state.active_agent = "SKEPTIC"
-            st.session_state.chat_history = []
-            st.info("→ Switched to SKEPTIC. Go to the **Chat** tab to stress-test your idea!")
+            st.info("→ Go to **Chat** tab — SKEPTIC is ready.")
     with qa6:
         if st.button("🎨 Design with PIXEL", use_container_width=True):
             st.session_state.active_agent = "PIXEL"
-            st.session_state.chat_history = []
-            st.info("→ Switched to PIXEL. Go to the **Chat** tab for design advice!")
+            st.info("→ Go to **Chat** tab — PIXEL is ready.")
 
-    st.markdown("---")
-    st.subheader("📊 System Info")
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📊 SYSTEM STATUS</div>', unsafe_allow_html=True)
 
     si1, si2 = st.columns(2)
     with si1:
@@ -512,7 +855,7 @@ with tab_office:
             f"**Total agents:** {len(AGENTS)}  \n"
             f"**Departments:** {len(DEPARTMENTS)}  \n"
             f"**Tasks in queue:** {len(st.session_state.tasks)}  \n"
-            f"**Chat messages this session:** {len(st.session_state.chat_history)}"
+            f"**Total messages:** {sum(len(v) for v in st.session_state.agent_chats.values())}"
         )
     with si2:
         claude_status = "✅ Connected" if claude_api_key else "❌ Not set"
@@ -520,16 +863,19 @@ with tab_office:
         st.markdown(
             f"**Claude API:** {claude_status}  \n"
             f"**Grok API:** {grok_status}  \n"
-            f"**Deployment:** Streamlit Community Cloud  \n"
-            f"**Cost:** 100% Free"
+            f"**Deployment:** Streamlit Cloud  \n"
+            f"**Version:** 3.0"
         )
 
 # =============================================================================
 # FOOTER
 # =============================================================================
-st.markdown("---")
-st.caption(
-    "AI Agent Home Base · Streamlit + Plotly · "
-    "Claude (Anthropic) + Grok (xAI) · 100% free · "
-    f"v2.0 · {datetime.now().strftime('%Y-%m-%d')}"
+st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+st.markdown(
+    f'<div class="footer-text">'
+    f'AI AGENT HOME BASE · V3.0 · STREAMLIT + PLOTLY · '
+    f'CLAUDE (ANTHROPIC) + GROK (XAI) · '
+    f'{datetime.now().strftime("%Y-%m-%d")}'
+    f'</div>',
+    unsafe_allow_html=True,
 )
