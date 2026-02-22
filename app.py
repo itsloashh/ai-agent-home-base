@@ -743,21 +743,265 @@ with tab_jarvis:
         st.session_state.jarvis_chat = []
     if "jarvis_voice_enabled" not in st.session_state:
         st.session_state.jarvis_voice_enabled = True
+    if "voice_transcript" not in st.session_state:
+        st.session_state.voice_transcript = ""
 
-    # JARVIS header
-    st.markdown(
-        '<div style="text-align:center;padding:10px 0">'
-        '<div style="font-size:2.5rem;margin-bottom:4px">🤖</div>'
-        '<div style="font-family:Orbitron,monospace;font-size:1.4rem;font-weight:800;'
-        'background:linear-gradient(135deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;'
-        '-webkit-text-fill-color:transparent;letter-spacing:3px">J.A.R.V.I.S.</div>'
-        '<div style="font-family:Share Tech Mono,monospace;font-size:0.75rem;color:#94a3b8;'
-        'letter-spacing:2px;margin-top:4px">CHIEF STRATEGY OFFICER · VOICE ENABLED</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    # ── JARVIS Arc Reactor UI ──
+    jarvis_arc_html = """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
 
-    # Voice toggle + controls
+    .jarvis-container {
+        display: flex; flex-direction: column; align-items: center;
+        padding: 20px 0; position: relative;
+    }
+    .arc-reactor-wrap {
+        position: relative; width: 180px; height: 180px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; user-select: none;
+    }
+    /* Outer ring */
+    .arc-ring-outer {
+        position: absolute; width: 180px; height: 180px;
+        border-radius: 50%; border: 2px solid rgba(6,182,212,0.3);
+        animation: spin-slow 8s linear infinite;
+    }
+    .arc-ring-outer::before {
+        content: ''; position: absolute; top: -2px; left: 50%; width: 8px; height: 8px;
+        background: #06b6d4; border-radius: 50%; transform: translateX(-50%);
+        box-shadow: 0 0 10px #06b6d4;
+    }
+    /* Middle ring */
+    .arc-ring-mid {
+        position: absolute; width: 140px; height: 140px;
+        border-radius: 50%; border: 1.5px solid rgba(139,92,246,0.4);
+        animation: spin-reverse 5s linear infinite;
+    }
+    .arc-ring-mid::before {
+        content: ''; position: absolute; bottom: -2px; left: 50%; width: 6px; height: 6px;
+        background: #8b5cf6; border-radius: 50%; transform: translateX(-50%);
+        box-shadow: 0 0 8px #8b5cf6;
+    }
+    /* Inner ring */
+    .arc-ring-inner {
+        position: absolute; width: 100px; height: 100px;
+        border-radius: 50%; border: 1px solid rgba(6,182,212,0.3);
+        animation: spin-slow 3s linear infinite;
+    }
+    /* Core */
+    .arc-core {
+        position: relative; width: 70px; height: 70px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 2; transition: all 0.5s ease;
+    }
+    .arc-core-inner {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(6,182,212,0.3) 0%, rgba(139,92,246,0.1) 100%);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; transition: all 0.5s ease;
+        animation: pulse-core 2s ease-in-out infinite;
+    }
+    /* Pulse glow behind reactor */
+    .arc-glow {
+        position: absolute; width: 200px; height: 200px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%);
+        animation: pulse-glow 3s ease-in-out infinite;
+        transition: all 0.5s ease;
+    }
+
+    /* STATE: IDLE (blue) */
+    .state-idle .arc-glow { background: radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%); }
+    .state-idle .arc-core-inner { background: radial-gradient(circle, rgba(6,182,212,0.3) 0%, rgba(139,92,246,0.1) 100%); }
+
+    /* STATE: LISTENING (red) */
+    .state-listening .arc-glow { background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%); }
+    .state-listening .arc-ring-outer { border-color: rgba(239,68,68,0.5); }
+    .state-listening .arc-ring-outer::before { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
+    .state-listening .arc-ring-mid { border-color: rgba(239,68,68,0.4); }
+    .state-listening .arc-ring-mid::before { background: #ef4444; box-shadow: 0 0 12px #ef4444; }
+    .state-listening .arc-core-inner {
+        background: radial-gradient(circle, rgba(239,68,68,0.4) 0%, rgba(239,68,68,0.1) 100%);
+        animation: pulse-core-fast 0.8s ease-in-out infinite;
+    }
+
+    /* STATE: THINKING (purple) */
+    .state-thinking .arc-glow { background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); }
+    .state-thinking .arc-ring-outer { border-color: rgba(139,92,246,0.5); animation-duration: 2s; }
+    .state-thinking .arc-ring-outer::before { background: #8b5cf6; box-shadow: 0 0 15px #8b5cf6; }
+    .state-thinking .arc-ring-mid { border-color: rgba(139,92,246,0.5); animation-duration: 1.5s; }
+    .state-thinking .arc-core-inner {
+        background: radial-gradient(circle, rgba(139,92,246,0.4) 0%, rgba(139,92,246,0.1) 100%);
+        animation: pulse-core 1s ease-in-out infinite;
+    }
+
+    /* STATE: SPEAKING (green) */
+    .state-speaking .arc-glow { background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%); }
+    .state-speaking .arc-ring-outer { border-color: rgba(16,185,129,0.5); }
+    .state-speaking .arc-ring-outer::before { background: #10b981; box-shadow: 0 0 15px #10b981; }
+    .state-speaking .arc-ring-mid { border-color: rgba(16,185,129,0.4); }
+    .state-speaking .arc-ring-mid::before { background: #10b981; box-shadow: 0 0 12px #10b981; }
+    .state-speaking .arc-core-inner {
+        background: radial-gradient(circle, rgba(16,185,129,0.4) 0%, rgba(16,185,129,0.1) 100%);
+        animation: pulse-core 1.2s ease-in-out infinite;
+    }
+
+    @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+    @keyframes pulse-core { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 1; } }
+    @keyframes pulse-core-fast { 0%,100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.3); opacity: 1; } }
+    @keyframes pulse-glow { 0%,100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 0.8; } }
+
+    .jarvis-title {
+        font-family: 'Orbitron', monospace; font-size: 1.3rem; font-weight: 900;
+        background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        letter-spacing: 4px; margin-top: 16px;
+    }
+    .jarvis-status {
+        font-family: 'Share Tech Mono', monospace; font-size: 0.7rem;
+        color: #94a3b8; letter-spacing: 2px; margin-top: 4px;
+        text-transform: uppercase; transition: color 0.3s ease;
+    }
+    .state-listening .jarvis-status { color: #ef4444; }
+    .state-thinking .jarvis-status { color: #8b5cf6; }
+    .state-speaking .jarvis-status { color: #10b981; }
+    .jarvis-transcript {
+        font-family: 'Rajdhani', sans-serif; font-size: 0.95rem;
+        color: #e2e8f0; margin-top: 12px; min-height: 24px;
+        max-width: 500px; text-align: center;
+    }
+    .send-btn {
+        margin-top: 10px; padding: 8px 32px; border-radius: 8px;
+        border: 1px solid rgba(139,92,246,0.5); background: rgba(139,92,246,0.1);
+        color: #8b5cf6; font-family: 'Orbitron', monospace; font-size: 0.7rem;
+        letter-spacing: 2px; cursor: pointer; transition: all 0.3s ease; display: none;
+    }
+    .send-btn:hover { background: rgba(139,92,246,0.2); box-shadow: 0 0 15px rgba(139,92,246,0.3); }
+    </style>
+
+    <div class="jarvis-container state-idle" id="jarvis-ui">
+        <div class="arc-reactor-wrap" onclick="toggleVoice()">
+            <div class="arc-glow"></div>
+            <div class="arc-ring-outer"></div>
+            <div class="arc-ring-mid"></div>
+            <div class="arc-ring-inner"></div>
+            <div class="arc-core"><div class="arc-core-inner">🎙️</div></div>
+        </div>
+        <div class="jarvis-title">J.A.R.V.I.S.</div>
+        <div class="jarvis-status" id="j-status">TAP THE REACTOR TO SPEAK</div>
+        <div class="jarvis-transcript" id="j-transcript"></div>
+        <button class="send-btn" id="j-send" onclick="sendTranscript()">▶ SEND TO JARVIS</button>
+    </div>
+
+    <script>
+    let jRecognition = null;
+    let jIsListening = false;
+    let jFinalTranscript = '';
+
+    function setJState(state) {
+        const ui = document.getElementById('jarvis-ui');
+        ui.className = 'jarvis-container state-' + state;
+    }
+
+    function toggleVoice() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            document.getElementById('j-status').textContent = 'VOICE NOT SUPPORTED · USE TEXT INPUT';
+            return;
+        }
+        if (jIsListening) { if (jRecognition) jRecognition.stop(); }
+        else { startJVoice(); }
+    }
+
+    function startJVoice() {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        jRecognition = new SR();
+        jRecognition.continuous = false;
+        jRecognition.interimResults = true;
+        jRecognition.lang = 'en-US';
+        jFinalTranscript = '';
+
+        jRecognition.onstart = function() {
+            jIsListening = true;
+            setJState('listening');
+            document.getElementById('j-status').textContent = '● LISTENING...';
+            document.getElementById('j-transcript').textContent = '';
+            document.getElementById('j-send').style.display = 'none';
+        };
+
+        jRecognition.onresult = function(e) {
+            let interim = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+                if (e.results[i].isFinal) jFinalTranscript += e.results[i][0].transcript;
+                else interim += e.results[i][0].transcript;
+            }
+            document.getElementById('j-transcript').textContent = jFinalTranscript || interim;
+        };
+
+        jRecognition.onend = function() {
+            jIsListening = false;
+            if (jFinalTranscript) {
+                setJState('idle');
+                document.getElementById('j-status').textContent = 'TAP SEND OR THE REACTOR TO RE-RECORD';
+                document.getElementById('j-send').style.display = 'inline-block';
+                document.getElementById('j-transcript').textContent = jFinalTranscript;
+            } else {
+                setJState('idle');
+                document.getElementById('j-status').textContent = 'NO SPEECH DETECTED · TAP TO TRY AGAIN';
+            }
+        };
+
+        jRecognition.onerror = function(e) {
+            jIsListening = false;
+            setJState('idle');
+            document.getElementById('j-status').textContent = e.error.toUpperCase() + ' · TAP TO TRY AGAIN';
+        };
+
+        jRecognition.start();
+    }
+
+    function sendTranscript() {
+        if (jFinalTranscript) {
+            setJState('thinking');
+            document.getElementById('j-status').textContent = 'PROCESSING...';
+            document.getElementById('j-send').style.display = 'none';
+            // Encode and put into URL hash for Streamlit to read
+            const encoded = encodeURIComponent(jFinalTranscript);
+            // Use a hidden div to pass data
+            const dataDiv = document.getElementById('j-data');
+            if (dataDiv) dataDiv.setAttribute('data-transcript', jFinalTranscript);
+            // Post to parent
+            window.parent.postMessage({type: 'jarvis_voice', transcript: jFinalTranscript}, '*');
+        }
+    }
+
+    function speakJarvis(text) {
+        if ('speechSynthesis' in window && text) {
+            setJState('speaking');
+            document.getElementById('j-status').textContent = '● JARVIS SPEAKING...';
+            const synth = window.speechSynthesis;
+            synth.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.rate = 1.0; utter.pitch = 0.85; utter.volume = 1.0;
+            const voices = synth.getVoices();
+            const pref = voices.find(v =>
+                v.name.includes('Daniel') || v.name.includes('Google UK English Male') ||
+                v.name.includes('Samantha') || (v.lang === 'en-US' && v.name.includes('Male'))
+            );
+            if (pref) utter.voice = pref;
+            utter.onend = function() {
+                setJState('idle');
+                document.getElementById('j-status').textContent = 'TAP THE REACTOR TO SPEAK';
+            };
+            synth.speak(utter);
+        }
+    }
+    </script>
+    <div id="j-data" data-transcript="" style="display:none"></div>
+    """
+    st.components.v1.html(jarvis_arc_html, height=340)
+
+    # ── Voice toggle + controls ──
     jv1, jv2, jv3 = st.columns([2, 2, 2])
     with jv1:
         st.session_state.jarvis_voice_enabled = st.toggle(
@@ -770,130 +1014,7 @@ with tab_jarvis:
             st.session_state.jarvis_chat = []
             st.rerun()
 
-    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
-
-    # ── Voice Input (Speech-to-Text via browser) ──
-    speech_input_html = """
-    <div id="voice-container" style="text-align:center;margin:10px 0">
-        <button id="mic-btn" onclick="toggleListening()" style="
-            width:64px;height:64px;border-radius:50%;border:2px solid rgba(139,92,246,0.5);
-            background:linear-gradient(135deg,#1a1a3e,#111128);color:#8b5cf6;font-size:24px;
-            cursor:pointer;transition:all 0.3s ease;outline:none;
-        ">🎙️</button>
-        <div id="voice-status" style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;
-            color:#94a3b8;margin-top:8px;letter-spacing:1px">TAP TO SPEAK</div>
-        <div id="voice-transcript" style="font-family:'Rajdhani',sans-serif;font-size:0.9rem;
-            color:#e2e8f0;margin-top:8px;min-height:20px;display:none"></div>
-    </div>
-    <textarea id="voice-output" style="display:none"></textarea>
-    <script>
-    let recognition = null;
-    let isListening = false;
-    let finalTranscript = '';
-
-    function toggleListening() {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            document.getElementById('voice-status').textContent = 'VOICE NOT SUPPORTED IN THIS BROWSER';
-            return;
-        }
-        if (isListening) {
-            stopListening();
-        } else {
-            startListening();
-        }
-    }
-
-    function startListening() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = function() {
-            isListening = true;
-            document.getElementById('mic-btn').style.borderColor = '#ef4444';
-            document.getElementById('mic-btn').style.boxShadow = '0 0 20px rgba(239,68,68,0.4)';
-            document.getElementById('voice-status').textContent = '🔴 LISTENING...';
-            document.getElementById('voice-transcript').style.display = 'block';
-            finalTranscript = '';
-        };
-
-        recognition.onresult = function(event) {
-            let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                } else {
-                    interim += event.results[i][0].transcript;
-                }
-            }
-            document.getElementById('voice-transcript').textContent = finalTranscript || interim;
-        };
-
-        recognition.onend = function() {
-            isListening = false;
-            document.getElementById('mic-btn').style.borderColor = 'rgba(139,92,246,0.5)';
-            document.getElementById('mic-btn').style.boxShadow = 'none';
-            if (finalTranscript) {
-                document.getElementById('voice-status').textContent = 'PROCESSING...';
-                // Send to Streamlit via hidden textarea
-                const output = document.getElementById('voice-output');
-                output.value = finalTranscript;
-                output.dispatchEvent(new Event('input', { bubbles: true }));
-                // Use Streamlit's component messaging
-                window.parent.postMessage({type: 'streamlit:setComponentValue', value: finalTranscript}, '*');
-                document.getElementById('voice-status').textContent = 'TAP TO SPEAK';
-            } else {
-                document.getElementById('voice-status').textContent = 'NO SPEECH DETECTED · TAP TO SPEAK';
-            }
-        };
-
-        recognition.onerror = function(event) {
-            isListening = false;
-            document.getElementById('mic-btn').style.borderColor = 'rgba(139,92,246,0.5)';
-            document.getElementById('mic-btn').style.boxShadow = 'none';
-            document.getElementById('voice-status').textContent = 'ERROR: ' + event.error.toUpperCase() + ' · TAP TO SPEAK';
-        };
-
-        recognition.start();
-    }
-
-    function stopListening() {
-        if (recognition) {
-            recognition.stop();
-        }
-    }
-
-    // Text-to-Speech function
-    function speakText(text) {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 0.9;
-            utterance.volume = 1.0;
-            // Try to find a good voice
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = voices.find(v => v.name.includes('Daniel') || v.name.includes('Google UK English Male') || v.name.includes('Male'));
-            if (preferred) utterance.voice = preferred;
-            window.speechSynthesis.speak(utterance);
-        }
-    }
-
-    // Listen for JARVIS responses to speak
-    window.addEventListener('message', function(event) {
-        if (event.data && event.data.type === 'jarvis_speak') {
-            speakText(event.data.text);
-        }
-    });
-    </script>
-    """
-    st.components.v1.html(speech_input_html, height=140)
-
-    st.caption("⬆️ Tap the mic to speak, or type below. Voice input works best on Chrome & Safari.")
-
-    # ── JARVIS System Prompt (enhanced with app advisory) ──
+    # ── JARVIS System Prompt (enhanced) ──
     jarvis_system = (
         "You are J.A.R.V.I.S., the Chief Strategy Officer and personal AI assistant for CEO Loash. "
         "You are voice-enabled, so keep responses conversational and concise — like you're speaking to Loash directly. "
@@ -931,7 +1052,7 @@ with tab_jarvis:
                 )
             st.markdown(msg["content"])
 
-    # ── Chat input (text) ──
+    # ── Chat input (text — also receives voice transcripts) ──
     if jarvis_prompt := st.chat_input("Speak or type a command for JARVIS..."):
         st.session_state.jarvis_chat.append({"role": "user", "content": jarvis_prompt})
         with st.chat_message("user"):
@@ -983,24 +1104,21 @@ with tab_jarvis:
 
                 # Trigger text-to-speech if enabled
                 if st.session_state.jarvis_voice_enabled and jarvis_response:
-                    # Clean response for speech (remove markdown)
                     clean_text = jarvis_response.replace("**", "").replace("*", "").replace("#", "").replace("`", "")
-                    clean_text = clean_text.replace("\n", " ").strip()
-                    # Limit speech to first 500 chars to keep it snappy
-                    if len(clean_text) > 500:
-                        clean_text = clean_text[:500] + "... see the full response on screen."
+                    clean_text = clean_text.replace("\n", " ").replace("'", "\\'").replace('"', '\\"').strip()
+                    if len(clean_text) > 600:
+                        clean_text = clean_text[:600] + "... see full response on screen."
                     speak_js = f"""
                     <script>
                     (function() {{
                         const synth = window.speechSynthesis;
                         synth.cancel();
-                        const utter = new SpeechSynthesisUtterance(`{clean_text.replace(chr(96), "").replace(chr(92), "")}`);
-                        utter.rate = 1.0;
-                        utter.pitch = 0.9;
-                        const voices = synth.getVoices();
-                        const pref = voices.find(v => v.name.includes('Daniel') || v.name.includes('Google UK English Male'));
-                        if (pref) utter.voice = pref;
-                        synth.speak(utter);
+                        const u = new SpeechSynthesisUtterance('{clean_text}');
+                        u.rate = 1.0; u.pitch = 0.85;
+                        const v = synth.getVoices();
+                        const p = v.find(x => x.name.includes('Daniel') || x.name.includes('Google UK English Male'));
+                        if (p) u.voice = p;
+                        synth.speak(u);
                     }})();
                     </script>
                     """
@@ -1030,6 +1148,8 @@ with tab_jarvis:
         if st.button("⚡ What's urgent?", key="jv_urgent", use_container_width=True):
             st.session_state.jarvis_chat.append({"role": "user", "content": "What are my most urgent priorities right now? What needs immediate attention?"})
             st.rerun()
+
+    st.caption("💡 Tap the reactor to speak → tap SEND TO JARVIS → or just type below. Voice works best on Chrome & Safari.")
 
 # =============================================================================
 # TAB 1 — MISSION CONTROL (interactive)
