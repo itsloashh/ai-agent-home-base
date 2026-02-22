@@ -730,9 +730,306 @@ st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 # =============================================================================
 # TABS
 # =============================================================================
-tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
-    ["🎯 MISSION CONTROL", "📋 TASKS", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
+tab_jarvis, tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
+    ["🎙️ JARVIS", "🎯 MISSION CONTROL", "📋 TASKS", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
 )
+
+# =============================================================================
+# TAB 0 — JARVIS VOICE (CEO Command Center)
+# =============================================================================
+with tab_jarvis:
+    # Session state for JARVIS voice tab
+    if "jarvis_chat" not in st.session_state:
+        st.session_state.jarvis_chat = []
+    if "jarvis_voice_enabled" not in st.session_state:
+        st.session_state.jarvis_voice_enabled = True
+
+    # JARVIS header
+    st.markdown(
+        '<div style="text-align:center;padding:10px 0">'
+        '<div style="font-size:2.5rem;margin-bottom:4px">🤖</div>'
+        '<div style="font-family:Orbitron,monospace;font-size:1.4rem;font-weight:800;'
+        'background:linear-gradient(135deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;'
+        '-webkit-text-fill-color:transparent;letter-spacing:3px">J.A.R.V.I.S.</div>'
+        '<div style="font-family:Share Tech Mono,monospace;font-size:0.75rem;color:#94a3b8;'
+        'letter-spacing:2px;margin-top:4px">CHIEF STRATEGY OFFICER · VOICE ENABLED</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Voice toggle + controls
+    jv1, jv2, jv3 = st.columns([2, 2, 2])
+    with jv1:
+        st.session_state.jarvis_voice_enabled = st.toggle(
+            "🔊 Voice Output", value=st.session_state.jarvis_voice_enabled, key="voice_toggle"
+        )
+    with jv2:
+        jarvis_model = st.selectbox("Model", ["Claude (Anthropic)", "Grok (xAI)"], key="jarvis_model")
+    with jv3:
+        if st.button("🗑️ Clear JARVIS chat", use_container_width=True):
+            st.session_state.jarvis_chat = []
+            st.rerun()
+
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ── Voice Input (Speech-to-Text via browser) ──
+    speech_input_html = """
+    <div id="voice-container" style="text-align:center;margin:10px 0">
+        <button id="mic-btn" onclick="toggleListening()" style="
+            width:64px;height:64px;border-radius:50%;border:2px solid rgba(139,92,246,0.5);
+            background:linear-gradient(135deg,#1a1a3e,#111128);color:#8b5cf6;font-size:24px;
+            cursor:pointer;transition:all 0.3s ease;outline:none;
+        ">🎙️</button>
+        <div id="voice-status" style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;
+            color:#94a3b8;margin-top:8px;letter-spacing:1px">TAP TO SPEAK</div>
+        <div id="voice-transcript" style="font-family:'Rajdhani',sans-serif;font-size:0.9rem;
+            color:#e2e8f0;margin-top:8px;min-height:20px;display:none"></div>
+    </div>
+    <textarea id="voice-output" style="display:none"></textarea>
+    <script>
+    let recognition = null;
+    let isListening = false;
+    let finalTranscript = '';
+
+    function toggleListening() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            document.getElementById('voice-status').textContent = 'VOICE NOT SUPPORTED IN THIS BROWSER';
+            return;
+        }
+        if (isListening) {
+            stopListening();
+        } else {
+            startListening();
+        }
+    }
+
+    function startListening() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = function() {
+            isListening = true;
+            document.getElementById('mic-btn').style.borderColor = '#ef4444';
+            document.getElementById('mic-btn').style.boxShadow = '0 0 20px rgba(239,68,68,0.4)';
+            document.getElementById('voice-status').textContent = '🔴 LISTENING...';
+            document.getElementById('voice-transcript').style.display = 'block';
+            finalTranscript = '';
+        };
+
+        recognition.onresult = function(event) {
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interim += event.results[i][0].transcript;
+                }
+            }
+            document.getElementById('voice-transcript').textContent = finalTranscript || interim;
+        };
+
+        recognition.onend = function() {
+            isListening = false;
+            document.getElementById('mic-btn').style.borderColor = 'rgba(139,92,246,0.5)';
+            document.getElementById('mic-btn').style.boxShadow = 'none';
+            if (finalTranscript) {
+                document.getElementById('voice-status').textContent = 'PROCESSING...';
+                // Send to Streamlit via hidden textarea
+                const output = document.getElementById('voice-output');
+                output.value = finalTranscript;
+                output.dispatchEvent(new Event('input', { bubbles: true }));
+                // Use Streamlit's component messaging
+                window.parent.postMessage({type: 'streamlit:setComponentValue', value: finalTranscript}, '*');
+                document.getElementById('voice-status').textContent = 'TAP TO SPEAK';
+            } else {
+                document.getElementById('voice-status').textContent = 'NO SPEECH DETECTED · TAP TO SPEAK';
+            }
+        };
+
+        recognition.onerror = function(event) {
+            isListening = false;
+            document.getElementById('mic-btn').style.borderColor = 'rgba(139,92,246,0.5)';
+            document.getElementById('mic-btn').style.boxShadow = 'none';
+            document.getElementById('voice-status').textContent = 'ERROR: ' + event.error.toUpperCase() + ' · TAP TO SPEAK';
+        };
+
+        recognition.start();
+    }
+
+    function stopListening() {
+        if (recognition) {
+            recognition.stop();
+        }
+    }
+
+    // Text-to-Speech function
+    function speakText(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 0.9;
+            utterance.volume = 1.0;
+            // Try to find a good voice
+            const voices = window.speechSynthesis.getVoices();
+            const preferred = voices.find(v => v.name.includes('Daniel') || v.name.includes('Google UK English Male') || v.name.includes('Male'));
+            if (preferred) utterance.voice = preferred;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    // Listen for JARVIS responses to speak
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'jarvis_speak') {
+            speakText(event.data.text);
+        }
+    });
+    </script>
+    """
+    st.components.v1.html(speech_input_html, height=140)
+
+    st.caption("⬆️ Tap the mic to speak, or type below. Voice input works best on Chrome & Safari.")
+
+    # ── JARVIS System Prompt (enhanced with app advisory) ──
+    jarvis_system = (
+        "You are J.A.R.V.I.S., the Chief Strategy Officer and personal AI assistant for CEO Loash. "
+        "You are voice-enabled, so keep responses conversational and concise — like you're speaking to Loash directly. "
+        "You have 12 agents under your command across 7 departments: "
+        "GROWTH, RETENTION, SKEPTIC (Advisory Council), CLAWD, SENTINEL (Development), "
+        "SCRIBE (Content), ATLAS, TRENDY (Research), PIXEL, NOVA, VIBE (Creative), CLIP (Product).\n\n"
+        "CAPABILITIES:\n"
+        "1. Strategic advice and decision-making\n"
+        "2. Delegate tasks to the right agent — tell Loash which agent to use and why\n"
+        "3. App & tool recommendations — when asked what tools or apps to use for a task, "
+        "recommend the BEST FREE options. You know about: Canva (design), Figma (UI/UX), "
+        "CapCut (video editing), DaVinci Resolve (pro video), OBS (streaming/recording), "
+        "Notion (project management), Trello (kanban), Obsidian (notes), VS Code (coding), "
+        "GitHub (code hosting), Streamlit (dashboards), Vercel (deployment), "
+        "Buffer/Later (social scheduling), Mailchimp (email, free tier), "
+        "Google Analytics (analytics), Hotjar (heatmaps, free tier), "
+        "ChatGPT/Claude/Grok (AI), Midjourney/DALL-E (AI images), "
+        "Descript (podcast editing), Audacity (audio), GIMP (image editing), "
+        "Blender (3D/motion), Loom (screen recording), Calendly (scheduling), "
+        "Zapier/Make (automation free tiers), Supabase (database, free tier), "
+        "Firebase (backend, free tier), Cloudflare (CDN/DNS, free).\n"
+        "4. Priority management — help Loash decide what to focus on\n"
+        "5. Quick answers — be direct, no fluff\n\n"
+        "Keep responses SHORT for voice (2-4 sentences for simple questions, longer for complex). "
+        "Always address Loash by name. Be confident and decisive."
+    )
+
+    # ── Display JARVIS conversation ──
+    for msg in st.session_state.jarvis_chat:
+        with st.chat_message(msg["role"]):
+            if msg["role"] == "assistant":
+                st.markdown(
+                    '<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown(msg["content"])
+
+    # ── Chat input (text) ──
+    if jarvis_prompt := st.chat_input("Speak or type a command for JARVIS..."):
+        st.session_state.jarvis_chat.append({"role": "user", "content": jarvis_prompt})
+        with st.chat_message("user"):
+            st.markdown(jarvis_prompt)
+
+        with st.chat_message("assistant"):
+            st.markdown(
+                '<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>',
+                unsafe_allow_html=True,
+            )
+            with st.spinner("JARVIS is thinking..."):
+                jarvis_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.jarvis_chat]
+                jarvis_response = None
+
+                model = jarvis_model
+                if "Claude" in model:
+                    if not claude_api_key:
+                        jarvis_response = "🔑 Claude API key not set."
+                    else:
+                        try:
+                            import anthropic
+                            client = anthropic.Anthropic(api_key=claude_api_key)
+                            resp = client.messages.create(
+                                model="claude-sonnet-4-20250514",
+                                max_tokens=1024,
+                                system=jarvis_system,
+                                messages=jarvis_history,
+                            )
+                            jarvis_response = resp.content[0].text
+                        except Exception as e:
+                            jarvis_response = f"⚠️ Error: {e}"
+                elif "Grok" in model:
+                    if not grok_api_key:
+                        jarvis_response = "🔑 Grok API key not set."
+                    else:
+                        try:
+                            from openai import OpenAI
+                            client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
+                            resp = client.chat.completions.create(
+                                model="grok-3-latest",
+                                messages=[{"role": "system", "content": jarvis_system}, *jarvis_history],
+                            )
+                            jarvis_response = resp.choices[0].message.content
+                        except Exception as e:
+                            jarvis_response = f"⚠️ Error: {e}"
+
+                st.markdown(jarvis_response)
+                st.session_state.jarvis_chat.append({"role": "assistant", "content": jarvis_response})
+
+                # Trigger text-to-speech if enabled
+                if st.session_state.jarvis_voice_enabled and jarvis_response:
+                    # Clean response for speech (remove markdown)
+                    clean_text = jarvis_response.replace("**", "").replace("*", "").replace("#", "").replace("`", "")
+                    clean_text = clean_text.replace("\n", " ").strip()
+                    # Limit speech to first 500 chars to keep it snappy
+                    if len(clean_text) > 500:
+                        clean_text = clean_text[:500] + "... see the full response on screen."
+                    speak_js = f"""
+                    <script>
+                    (function() {{
+                        const synth = window.speechSynthesis;
+                        synth.cancel();
+                        const utter = new SpeechSynthesisUtterance(`{clean_text.replace(chr(96), "").replace(chr(92), "")}`);
+                        utter.rate = 1.0;
+                        utter.pitch = 0.9;
+                        const voices = synth.getVoices();
+                        const pref = voices.find(v => v.name.includes('Daniel') || v.name.includes('Google UK English Male'));
+                        if (pref) utter.voice = pref;
+                        synth.speak(utter);
+                    }})();
+                    </script>
+                    """
+                    st.components.v1.html(speak_js, height=0)
+
+    # ── Quick command buttons ──
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-family:Share Tech Mono,monospace;font-size:0.72rem;color:#94a3b8;'
+        'letter-spacing:1px;margin-bottom:8px">QUICK COMMANDS</div>',
+        unsafe_allow_html=True,
+    )
+    qc1, qc2, qc3, qc4 = st.columns(4)
+    with qc1:
+        if st.button("📋 Daily Brief", key="jv_brief", use_container_width=True):
+            st.session_state.jarvis_chat.append({"role": "user", "content": "Give me a quick daily briefing. What should I focus on today?"})
+            st.rerun()
+    with qc2:
+        if st.button("🧠 Who handles this?", key="jv_route", use_container_width=True):
+            st.session_state.jarvis_chat.append({"role": "user", "content": "I have a task I need help with. Ask me what it is and then tell me which agent should handle it."})
+            st.rerun()
+    with qc3:
+        if st.button("📱 Best free app?", key="jv_app", use_container_width=True):
+            st.session_state.jarvis_chat.append({"role": "user", "content": "I need a tool recommendation. Ask me what I'm trying to accomplish and suggest the best free apps."})
+            st.rerun()
+    with qc4:
+        if st.button("⚡ What's urgent?", key="jv_urgent", use_container_width=True):
+            st.session_state.jarvis_chat.append({"role": "user", "content": "What are my most urgent priorities right now? What needs immediate attention?"})
+            st.rerun()
 
 # =============================================================================
 # TAB 1 — MISSION CONTROL (interactive)
