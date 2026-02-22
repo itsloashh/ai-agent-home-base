@@ -1806,7 +1806,7 @@ with tab_leads:
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
     # ── SCOUT: Find businesses ──
-    le_tab1, le_tab2, le_tab3 = st.tabs(["🔍 SCOUT", "🕵️ INTEL", "📋 LEADS DB"])
+    le_tab1, le_tab2, le_tab3, le_tab4, le_tab5, le_tab6 = st.tabs(["🔍 SCOUT", "🕵️ INTEL", "🏗️ BUILDER", "📧 OUTREACH", "💰 CLOSER", "📋 LEADS DB"])
 
     with le_tab1:
         st.markdown("**SCOUT** finds local businesses that could benefit from a better website.")
@@ -1955,7 +1955,240 @@ with tab_leads:
                                     "INTEL", 0x3b82f6)
                                 st.success("📤 Audit sent to Discord #research-intel")
 
+    # ── BUILDER: Generate demo sites ──
     with le_tab3:
+        st.markdown("**BUILDER** creates demo websites based on INTEL's audit findings.")
+        audited = [l for l in st.session_state.leads if l.get("status") == "audited"]
+        if not audited:
+            st.info("No audited leads yet — run SCOUT then INTEL first.")
+        else:
+            for i, lead in enumerate(audited):
+                has_demo = lead.get("demo_html") is not None
+                status = "🟢 Demo Ready" if has_demo else "🟡 Awaiting Build"
+                with st.expander(f"{status} {lead['name']}", expanded=False):
+                    st.caption(f"Website: {lead.get('website', 'N/A')} · Score: {lead.get('score', '?')}/100")
+
+                    if has_demo:
+                        st.success("Demo site generated!")
+                        if st.button(f"👁️ Preview Demo", key=f"preview_{i}_{lead['name']}"):
+                            st.components.v1.html(lead["demo_html"], height=600, scrolling=True)
+                        if st.button(f"📤 Send Demo to Discord", key=f"discord_demo_{i}_{lead['name']}"):
+                            _send_discord("creative-assets",
+                                f"🏗️ BUILDER: Demo site for {lead['name']}",
+                                f"**Original:** {lead.get('website','N/A')}\n**Score:** {lead.get('score','?')}/100\n\nDemo HTML generated — view in dashboard.",
+                                "BUILDER", 0x8b5cf6)
+                            st.success("Sent!")
+                    else:
+                        if st.button(f"🏗️ Build Demo Site", key=f"build_{i}_{lead['name']}", use_container_width=True):
+                            with st.spinner(f"🏗️ BUILDER is creating a demo site for {lead['name']}..."):
+                                intel_brief = lead.get("intel", "No audit data available.")
+                                build_prompt = (
+                                    f"You are BUILDER, a web developer agent. Create a COMPLETE, modern, beautiful "
+                                    f"single-page HTML website for this business.\n\n"
+                                    f"Business: {lead['name']}\n"
+                                    f"Description: {lead.get('description', 'Local business')}\n"
+                                    f"Location: Based on the scout data\n"
+                                    f"Current Site Issues: {intel_brief[:1000]}\n\n"
+                                    f"Requirements:\n"
+                                    f"- Single HTML file with ALL CSS inline (in <style> tags)\n"
+                                    f"- Modern, clean design with a hero section, about, services, testimonials, contact\n"
+                                    f"- Mobile responsive\n"
+                                    f"- Professional color scheme matching their industry\n"
+                                    f"- Placeholder images using https://placehold.co/600x400\n"
+                                    f"- Clear call-to-action buttons\n"
+                                    f"- Fast-loading (no external JS frameworks)\n"
+                                    f"- Make it look significantly better than their current site\n\n"
+                                    f"Return ONLY the complete HTML. No explanation. Start with <!DOCTYPE html>."
+                                )
+                                demo_result = _call_llm("JARVIS",
+                                    "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                                    claude_api_key, grok_api_key,
+                                    [{"role": "user", "content": build_prompt}])
+
+                                # Extract HTML
+                                html_code = demo_result.strip()
+                                if "```" in html_code:
+                                    parts = html_code.split("```")
+                                    for part in parts:
+                                        if "<!DOCTYPE" in part or "<html" in part:
+                                            html_code = part.strip()
+                                            if html_code.startswith("html"):
+                                                html_code = html_code[4:].strip()
+                                            break
+
+                                lead["demo_html"] = html_code
+                                lead["status"] = "demo_ready"
+                                st.success(f"✅ Demo site built for {lead['name']}!")
+                                st.components.v1.html(html_code, height=600, scrolling=True)
+
+                                _send_discord("creative-assets",
+                                    f"🏗️ BUILDER: New demo site for {lead['name']}",
+                                    f"**Business:** {lead['name']}\n**Original Score:** {lead.get('score','?')}/100\n\nDemo HTML generated and ready for review in the dashboard.",
+                                    "BUILDER", 0x8b5cf6)
+
+    # ── OUTREACH: Send pitches (CEO approval required) ──
+    with le_tab4:
+        st.markdown("**OUTREACH** crafts personalized pitch emails. **Requires CEO approval before sending.**")
+        demo_ready = [l for l in st.session_state.leads if l.get("status") in ("demo_ready", "audited") and l.get("intel")]
+        if not demo_ready:
+            st.info("No leads with intel/demos yet — run SCOUT → INTEL → BUILDER first.")
+        else:
+            for i, lead in enumerate(demo_ready):
+                with st.expander(f"📧 {lead['name']}", expanded=False):
+                    # Generate pitch if not already done
+                    if not lead.get("pitch_email"):
+                        if st.button(f"✍️ Draft Pitch Email", key=f"pitch_{i}_{lead['name']}", use_container_width=True):
+                            with st.spinner("📧 OUTREACH is crafting a pitch..."):
+                                pitch_prompt = (
+                                    f"You are OUTREACH, a sales agent. Write a personalized pitch email "
+                                    f"for this business owner.\n\n"
+                                    f"Business: {lead['name']}\n"
+                                    f"Website: {lead.get('website', 'N/A')}\n"
+                                    f"Intel Brief: {lead.get('intel', 'N/A')[:1500]}\n"
+                                    f"Performance Score: {lead.get('score', '?')}/100\n\n"
+                                    f"Write a short, compelling email that:\n"
+                                    f"1. Opens with something specific about THEIR business (not generic)\n"
+                                    f"2. Mentions the specific problems INTEL found (in plain English)\n"
+                                    f"3. Mentions we built a free demo of what their new site could look like\n"
+                                    f"4. Has a clear CTA — 'Reply to see your free demo'\n"
+                                    f"5. Is under 150 words — busy owners don't read long emails\n"
+                                    f"6. Feels human, not corporate\n\n"
+                                    f"Also write:\n"
+                                    f"- Subject line (compelling, under 8 words)\n"
+                                    f"- SMS follow-up (under 160 chars, no links, just a heads-up)\n\n"
+                                    f"Format:\nSUBJECT: ...\nEMAIL: ...\nSMS: ..."
+                                )
+                                pitch_result = _call_llm("JARVIS",
+                                    "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                                    claude_api_key, grok_api_key,
+                                    [{"role": "user", "content": pitch_prompt}])
+
+                                lead["pitch_email"] = pitch_result
+                                lead["pitch_approved"] = False
+                                st.rerun()
+                    else:
+                        st.markdown(lead["pitch_email"])
+                        st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+                        if not lead.get("pitch_approved"):
+                            ap1, ap2, ap3 = st.columns(3)
+                            with ap1:
+                                if st.button(f"✅ Approve & Send to Discord", key=f"approve_{i}_{lead['name']}"):
+                                    lead["pitch_approved"] = True
+                                    lead["status"] = "pitch_approved"
+                                    _send_discord("ceo-approvals",
+                                        f"✅ CEO APPROVED: Pitch for {lead['name']}",
+                                        f"{lead['pitch_email'][:3000]}",
+                                        "OUTREACH", 0xf59e0b)
+                                    st.success("✅ Approved and sent to Discord #ceo-approvals!")
+                                    st.rerun()
+                            with ap2:
+                                if st.button(f"🔄 Regenerate", key=f"regen_{i}_{lead['name']}"):
+                                    lead["pitch_email"] = None
+                                    st.rerun()
+                            with ap3:
+                                if st.button(f"❌ Reject", key=f"reject_{i}_{lead['name']}"):
+                                    lead["pitch_email"] = None
+                                    lead["status"] = "audited"
+                                    st.rerun()
+                        else:
+                            st.success("✅ Pitch approved by CEO")
+
+                        # Future: SendGrid / Twilio integration
+                        st.caption("📌 Email/SMS sending requires SendGrid + Twilio API keys (add later in Settings)")
+
+    # ── CLOSER: Client monitoring & follow-ups ──
+    with le_tab5:
+        st.markdown("**CLOSER** monitors approved leads and manages follow-up sequences.")
+        approved = [l for l in st.session_state.leads if l.get("pitch_approved")]
+        if not approved:
+            st.info("No approved pitches yet — run the pipeline: SCOUT → INTEL → BUILDER → OUTREACH → Approve.")
+        else:
+            for i, lead in enumerate(approved):
+                with st.expander(f"💰 {lead['name']} — {lead.get('status', 'active')}", expanded=True):
+                    # Status tracker
+                    stages = ["Scouted", "Audited", "Demo Built", "Pitch Sent", "Follow-up 1", "Follow-up 2", "Replied", "Closed"]
+                    current_stage = 3  # pitch sent
+                    if lead.get("followup_count", 0) >= 1:
+                        current_stage = 4
+                    if lead.get("followup_count", 0) >= 2:
+                        current_stage = 5
+                    if lead.get("replied"):
+                        current_stage = 6
+                    if lead.get("closed"):
+                        current_stage = 7
+
+                    progress = (current_stage + 1) / len(stages)
+                    st.progress(progress, text=f"Stage: {stages[current_stage]}")
+
+                    mc1, mc2, mc3 = st.columns(3)
+                    with mc1:
+                        st.metric("Score", f"{lead.get('score', '?')}/100")
+                    with mc2:
+                        st.metric("Follow-ups", lead.get("followup_count", 0))
+                    with mc3:
+                        st.metric("Status", stages[current_stage])
+
+                    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+                    # Actions
+                    ac1, ac2, ac3 = st.columns(3)
+                    with ac1:
+                        if st.button(f"📧 Generate Follow-up", key=f"followup_{i}_{lead['name']}"):
+                            with st.spinner("CLOSER drafting follow-up..."):
+                                fu_count = lead.get("followup_count", 0) + 1
+                                fu_prompt = (
+                                    f"You are CLOSER, a follow-up specialist. Write follow-up #{fu_count} "
+                                    f"for {lead['name']}.\n\n"
+                                    f"Original pitch: {lead.get('pitch_email', 'N/A')[:500]}\n"
+                                    f"Business: {lead.get('description', 'N/A')}\n\n"
+                                    f"Rules:\n"
+                                    f"- Follow-up {fu_count}: {'Gentle reminder, add value' if fu_count == 1 else 'Create urgency, mention competitor trends' if fu_count == 2 else 'Final check-in, no pressure'}\n"
+                                    f"- Under 80 words\n"
+                                    f"- Reference the original email\n"
+                                    f"- Sound human and helpful, not pushy\n\n"
+                                    f"Format:\nSUBJECT: ...\nEMAIL: ..."
+                                )
+                                fu_result = _call_llm("JARVIS",
+                                    "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                                    claude_api_key, grok_api_key,
+                                    [{"role": "user", "content": fu_prompt}])
+                                lead["followup_count"] = fu_count
+                                lead["last_followup"] = fu_result
+                                st.markdown(fu_result)
+                                _send_discord("ceo-approvals",
+                                    f"📧 CLOSER: Follow-up #{fu_count} for {lead['name']}",
+                                    fu_result[:2000],
+                                    "CLOSER", 0xef4444)
+                                st.success("📤 Follow-up sent to Discord for review")
+                    with ac2:
+                        if st.button(f"✅ Mark Replied", key=f"replied_{i}_{lead['name']}"):
+                            lead["replied"] = True
+                            lead["status"] = "replied"
+                            _send_discord("task-completions",
+                                f"🎉 Lead Replied: {lead['name']}",
+                                f"{lead['name']} has replied to our outreach! Moving to closing stage.",
+                                "CLOSER", 0x22c55e)
+                            st.rerun()
+                    with ac3:
+                        if st.button(f"💰 Mark Closed/Won", key=f"closed_{i}_{lead['name']}"):
+                            lead["closed"] = True
+                            lead["status"] = "closed_won"
+                            _send_discord("task-completions",
+                                f"💰 DEAL CLOSED: {lead['name']}",
+                                f"🎉 {lead['name']} has been converted to a paying client!\n\n"
+                                f"**Original Score:** {lead.get('score','?')}/100\n"
+                                f"**Follow-ups:** {lead.get('followup_count', 0)}",
+                                "CLOSER", 0x22c55e)
+                            st.balloons()
+                            st.rerun()
+
+                    if lead.get("last_followup"):
+                        st.markdown("**Latest follow-up:**")
+                        st.markdown(lead["last_followup"])
+
+    # ── LEADS DB ──
+    with le_tab6:
         st.markdown("**All scouted and audited leads**")
         if not st.session_state.leads:
             st.info("No leads yet — run SCOUT first.")
