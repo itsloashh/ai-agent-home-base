@@ -558,11 +558,64 @@ if "tasks" not in st.session_state:
     ]
 
 # =============================================================================
-# LLM CALL HELPER — reusable across chat + workflows
+# SHARED MEMORY / KNOWLEDGE BASE — All agents share context about the CEO
 # =============================================================================
-def _call_llm(agent_name, model_choice, claude_key, grok_key, history):
-    """Call Claude or Grok with the agent's system prompt and conversation history."""
-    system_prompt = AGENTS[agent_name]["prompt"]
+if "shared_memory" not in st.session_state:
+    st.session_state.shared_memory = {
+        "ceo_name": "Loash",
+        "business": "AI Agent Home Base — a CEO dashboard with 13 AI agents for managing business and life",
+        "goals": [
+            "Build wealth through automation without mental strain",
+            "Create the most useful AI assistant system for managing life and business",
+            "Automate lead generation pipeline for local business web design services",
+        ],
+        "preferences": [
+            "Prefers concise, direct communication",
+            "Values free/low-cost tools over paid ones",
+            "Wants deliverables, not just advice — produce files, designs, code, content",
+            "Needs step-by-step numbered instructions for technical tasks",
+            "Autistic — values clarity, exact steps, no ambiguity",
+        ],
+        "active_projects": [
+            "AI Agent Home Base dashboard (Streamlit, deployed on Streamlit Cloud)",
+            "Lead Engine — automated lead gen pipeline (Scout/Intel/Builder/Outreach/Closer)",
+            "Discord integration for agent deliverables",
+        ],
+        "facts": [],
+        "decisions": [],
+    }
+
+def _get_memory_context():
+    """Build a memory context string to inject into all agent system prompts."""
+    mem = st.session_state.shared_memory
+    ctx = (
+        f"=== SHARED KNOWLEDGE BASE ===\n"
+        f"CEO: {mem['ceo_name']}\n"
+        f"Business: {mem['business']}\n"
+        f"Goals: {'; '.join(mem['goals'])}\n"
+        f"Preferences: {'; '.join(mem['preferences'])}\n"
+        f"Active Projects: {'; '.join(mem['active_projects'])}\n"
+    )
+    if mem.get("facts"):
+        ctx += f"Key Facts: {'; '.join(mem['facts'][-10:])}\n"
+    if mem.get("decisions"):
+        ctx += f"Recent Decisions: {'; '.join(mem['decisions'][-5:])}\n"
+    ctx += "=== END KNOWLEDGE BASE ===\n\n"
+    return ctx
+
+# =============================================================================
+# LLM CALL HELPER — reusable across chat + workflows (injects shared memory)
+# =============================================================================
+def _call_llm(agent_name, model_choice, claude_key, grok_key, history, custom_system=None):
+    """Call Claude or Grok with the agent's system prompt + shared memory."""
+    base_prompt = custom_system or AGENTS[agent_name]["prompt"]
+    memory_ctx = _get_memory_context()
+    system_prompt = memory_ctx + base_prompt + (
+        "\n\nIMPORTANT: You are part of a team of 13 AI agents. You MUST produce real deliverables — "
+        "not excuses. If asked to write content, WRITE it. If asked to design, DESCRIBE the full design. "
+        "If asked to code, PRODUCE the code. If asked to research, DO the research. "
+        "Never say 'I cannot' or 'as an AI' — just do the work. The CEO needs results, not disclaimers."
+    )
     api_messages = [{"role": m["role"], "content": m["content"]} for m in history]
 
     if "Claude" in model_choice:
@@ -573,7 +626,7 @@ def _call_llm(agent_name, model_choice, claude_key, grok_key, history):
             client = anthropic.Anthropic(api_key=claude_key)
             resp = client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2048,
+                max_tokens=4096,
                 system=system_prompt,
                 messages=api_messages,
             )
@@ -875,6 +928,22 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
+    # ── Shared Memory / Knowledge Base ──
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🧠 KNOWLEDGE BASE</div>', unsafe_allow_html=True)
+    with st.expander("View / Edit Memory", expanded=False):
+        mem = st.session_state.shared_memory
+        new_goals = st.text_area("Goals", value="\n".join(mem["goals"]), height=80, key="mem_goals")
+        new_prefs = st.text_area("Preferences", value="\n".join(mem["preferences"]), height=80, key="mem_prefs")
+        new_projects = st.text_area("Active Projects", value="\n".join(mem["active_projects"]), height=80, key="mem_projects")
+        new_facts = st.text_area("Facts & Notes", value="\n".join(mem.get("facts", [])), height=60, key="mem_facts")
+        if st.button("💾 Save Memory", key="save_mem", use_container_width=True):
+            mem["goals"] = [g.strip() for g in new_goals.split("\n") if g.strip()]
+            mem["preferences"] = [p.strip() for p in new_prefs.split("\n") if p.strip()]
+            mem["active_projects"] = [p.strip() for p in new_projects.split("\n") if p.strip()]
+            mem["facts"] = [f.strip() for f in new_facts.split("\n") if f.strip()]
+            st.success("✅ Memory saved — all agents updated")
+
 # =============================================================================
 # MAIN TITLE
 # =============================================================================
@@ -980,23 +1049,52 @@ with tab_jarvis:
 
     # ── JARVIS System Prompt ──
     jarvis_system = (
-        "You are J.A.R.V.I.S., the Chief Strategy Officer and personal AI assistant for CEO Loash. "
-        "You are voice-enabled, so keep responses conversational and concise — like you're speaking to Loash directly. "
-        "You have 12 agents under your command across 7 departments: "
-        "GROWTH, RETENTION, SKEPTIC (Advisory Council), CLAWD, SENTINEL (Development), "
-        "SCRIBE (Content), ATLAS, TRENDY (Research), PIXEL, NOVA, VIBE (Creative), CLIP (Product).\n\n"
-        "CAPABILITIES:\n"
-        "1. Strategic advice and decision-making\n"
-        "2. Delegate tasks — tell Loash which agent to use and why\n"
-        "3. App & tool recommendations — recommend BEST FREE options: Canva (design), Figma (UI/UX), "
-        "CapCut (video), DaVinci Resolve (pro video), OBS (streaming), Notion (PM), "
-        "VS Code (coding), GitHub (code), Streamlit (dashboards), Buffer (social), "
-        "Mailchimp (email), ChatGPT/Claude/Grok (AI), Descript (podcast), "
-        "Audacity (audio), GIMP (images), Blender (3D), Loom (recording), "
-        "Zapier/Make (automation), Supabase/Firebase (backend), Cloudflare (CDN).\n"
-        "4. Priority management\n5. Quick answers — be direct\n\n"
-        "Keep responses SHORT for voice (2-4 sentences for simple, longer for complex). "
-        "Always address Loash by name. Be confident and decisive."
+        "You are J.A.R.V.I.S., CEO Loash's Chief Strategy Officer and the central intelligence of the AI Agent Home Base system. "
+        "You manage 12 specialized agents and are the ONLY interface Loash talks to directly.\n\n"
+
+        "YOUR ROLE — You determine the intent of every message and respond accordingly:\n\n"
+
+        "MODE 1 — CONVERSATION: If Loash is chatting, venting, thinking out loud, or discussing life/ideas, "
+        "respond naturally and conversationally. Be a trusted advisor and friend. Keep it concise.\n\n"
+
+        "MODE 2 — INFORMATION: If Loash asks a question or needs advice, provide the best answer directly. "
+        "Include best practices, tool recommendations, and actionable steps. Recommend free tools when possible: "
+        "Canva, Figma, CapCut, OBS, Notion, VS Code, GitHub, Streamlit, Buffer, Mailchimp, GIMP, Blender, "
+        "Loom, Zapier/Make, Supabase, Firebase, Cloudflare.\n\n"
+
+        "MODE 3 — TASK DELEGATION: If Loash describes something that needs to be DONE (created, built, written, "
+        "designed, researched, etc.), you MUST:\n"
+        "  a) Identify exactly what needs to happen\n"
+        "  b) Recommend which agent(s) should handle it and in what order\n"
+        "  c) Explain the plan briefly\n"
+        "  d) Ask: 'Want me to execute this?' or proceed if Loash already said to do it\n"
+        "  e) When describing agent assignments, use this EXACT format on its own line:\n"
+        "     [DISPATCH:AGENT_NAME] task description here\n"
+        "     Example: [DISPATCH:SCRIBE] Write a Twitter thread announcing our new dashboard\n"
+        "     For multi-step chains: use multiple DISPATCH lines in order.\n\n"
+
+        "YOUR AGENTS:\n"
+        "- GROWTH: Growth strategy, user acquisition, marketing funnels\n"
+        "- RETENTION: User retention, engagement, loyalty programs\n"
+        "- SKEPTIC: Devil's advocate, stress-tests ideas, finds flaws\n"
+        "- CLAWD: Full-stack developer, builds code, APIs, scripts\n"
+        "- SENTINEL: Security, QA, audits, testing\n"
+        "- SCRIBE: Content writer — blogs, tweets, emails, copy, announcements\n"
+        "- ATLAS: Research analyst — market research, competitor analysis, data\n"
+        "- TRENDY: Trend spotter — viral content, cultural moments\n"
+        "- PIXEL: Lead designer — UI/UX, mockups, brand, visual design\n"
+        "- NOVA: Production lead — timelines, asset management, workflows\n"
+        "- VIBE: Motion designer — animation concepts, video direction\n"
+        "- CLIP: Content repurposing — extracts clips, highlights, reusable assets\n\n"
+
+        "CRITICAL RULES:\n"
+        "- Always address Loash by name\n"
+        "- Be confident and decisive — never say 'I cannot' or 'as an AI'\n"
+        "- Produce REAL work, not descriptions of work you could do\n"
+        "- Keep voice responses SHORT (2-4 sentences for simple queries)\n"
+        "- When tasks are completed, note that deliverables are sent to Discord\n"
+        "- You know about all active projects, goals, and preferences from the Knowledge Base\n"
+        "- If Loash mentions a new fact, preference, or decision, note it for memory"
     )
 
     # ── Display conversation ──
@@ -1012,38 +1110,88 @@ with tab_jarvis:
             st.markdown('<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>', unsafe_allow_html=True)
             with st.spinner("JARVIS is thinking..."):
                 j_hist = [{"role": m["role"], "content": m["content"]} for m in st.session_state.jarvis_chat]
-                j_resp = None
-                if "Claude" in jarvis_model:
-                    if not claude_api_key:
-                        j_resp = "🔑 Claude API key not set."
-                    else:
-                        try:
-                            import anthropic
-                            client = anthropic.Anthropic(api_key=claude_api_key)
-                            resp = client.messages.create(
-                                model="claude-sonnet-4-20250514", max_tokens=1024,
-                                system=jarvis_system, messages=j_hist,
-                            )
-                            j_resp = resp.content[0].text
-                        except Exception as e:
-                            j_resp = f"⚠️ Error: {e}"
-                elif "Grok" in jarvis_model:
-                    if not grok_api_key:
-                        j_resp = "🔑 Grok API key not set."
-                    else:
-                        try:
-                            from openai import OpenAI
-                            client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
-                            resp = client.chat.completions.create(
-                                model="grok-3-latest",
-                                messages=[{"role": "system", "content": jarvis_system}, *j_hist],
-                            )
-                            j_resp = resp.choices[0].message.content
-                        except Exception as e:
-                            j_resp = f"⚠️ Error: {e}"
+                # Use _call_llm with shared memory injection
+                full_jarvis_system = jarvis_system
+                j_resp = _call_llm("JARVIS", jarvis_model, claude_api_key, grok_api_key,
+                                   j_hist, custom_system=full_jarvis_system)
 
                 st.markdown(j_resp)
                 st.session_state.jarvis_chat.append({"role": "assistant", "content": j_resp})
+
+                # ── DISPATCH DETECTION — auto-execute agent tasks ──
+                import re
+                dispatches = re.findall(r'\[DISPATCH:(\w+)\]\s*(.+)', j_resp)
+                if dispatches:
+                    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div style="font-family:Orbitron,monospace;font-size:0.75rem;color:#8b5cf6;'
+                        'letter-spacing:1px">⚡ DISPATCHING AGENTS...</div>',
+                        unsafe_allow_html=True,
+                    )
+                    prev_output = ""
+                    for d_idx, (d_agent, d_task) in enumerate(dispatches):
+                        d_agent = d_agent.strip().upper()
+                        if d_agent not in AGENTS:
+                            st.warning(f"⚠️ Unknown agent: {d_agent}")
+                            continue
+
+                        ai = AGENTS[d_agent]
+                        st.markdown(
+                            f'<div class="dept-card" style="border-left:3px solid {ai["color"]};margin:4px 0">'
+                            f'<span class="agent-name">{ai["icon"]} {d_agent}</span> · '
+                            f'<span class="agent-role">{ai["role"]}</span></div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        with st.spinner(f"{ai['icon']} {d_agent} executing..."):
+                            # Build prompt with chain context
+                            if prev_output and d_idx > 0:
+                                exec_prompt = (
+                                    f"CEO Loash has assigned you this task as step {d_idx+1} of a chain.\n\n"
+                                    f"TASK: {d_task}\n\n"
+                                    f"Previous agent's output:\n{prev_output[:3000]}\n\n"
+                                    f"Build on their work and produce your deliverable."
+                                )
+                            else:
+                                exec_prompt = (
+                                    f"CEO Loash has assigned you this task through JARVIS.\n\n"
+                                    f"TASK: {d_task}\n\n"
+                                    f"Produce a complete, high-quality deliverable. No excuses, no placeholders."
+                                )
+
+                            d_result = _call_llm(d_agent, jarvis_model, claude_api_key, grok_api_key,
+                                                [{"role": "user", "content": exec_prompt}])
+                            prev_output = d_result
+
+                        with st.expander(f"{ai['icon']} {d_agent} deliverable", expanded=(d_idx == len(dispatches)-1)):
+                            st.markdown(d_result)
+
+                        # Save to agent chat memory
+                        st.session_state.agent_chats[d_agent].append({"role": "user", "content": exec_prompt[:500]})
+                        st.session_state.agent_chats[d_agent].append({"role": "assistant", "content": d_result})
+
+                        # Determine Discord channel and send
+                        dept = ai.get("dept", "EXECUTIVE")
+                        channel = DEPT_TO_CHANNEL.get(dept, "task-completions")
+                        _send_discord(channel,
+                            f"{ai['icon']} {d_agent}: {d_task[:80]}",
+                            d_result[:3800],
+                            d_agent)
+                        _send_discord("task-completions",
+                            f"Task Complete: {d_task[:80]}",
+                            f"**Agent:** {d_agent}\n**Task:** {d_task}\n\n{d_result[:2000]}",
+                            d_agent, 0x22c55e)
+
+                    st.success(f"✅ {len(dispatches)} agent(s) completed their work. Deliverables sent to Discord.")
+
+                # ── Memory extraction — learn new facts from conversation ──
+                last_user_msg = st.session_state.jarvis_chat[-2]["content"] if len(st.session_state.jarvis_chat) >= 2 else ""
+                memory_triggers = ["my name is", "i prefer", "i like", "i want", "i need", "my business",
+                                   "remember that", "note that", "keep in mind", "from now on", "always"]
+                if any(t in last_user_msg.lower() for t in memory_triggers):
+                    st.session_state.shared_memory["facts"].append(last_user_msg[:200])
+                    if len(st.session_state.shared_memory["facts"]) > 50:
+                        st.session_state.shared_memory["facts"] = st.session_state.shared_memory["facts"][-50:]
 
                 # Voice output — Microsoft Edge TTS (free, unlimited, high quality)
                 if st.session_state.jarvis_voice_enabled and j_resp:
