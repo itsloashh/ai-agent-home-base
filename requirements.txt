@@ -3,3 +3,4 @@ plotly
 anthropic
 openai
 requests
+streamlit-mic-recorder
