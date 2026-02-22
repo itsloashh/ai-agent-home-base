@@ -735,18 +735,16 @@ tab_jarvis, tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
 )
 
 # =============================================================================
-# TAB 0 — JARVIS VOICE (CEO Command Center)
+# TAB 0 — JARVIS (CEO Command Center)
 # =============================================================================
 with tab_jarvis:
-    from streamlit_mic_recorder import speech_to_text
-
     if "jarvis_chat" not in st.session_state:
         st.session_state.jarvis_chat = []
     if "jarvis_voice_enabled" not in st.session_state:
         st.session_state.jarvis_voice_enabled = True
 
-    # ── Arc Reactor visual (decorative + status) ──
-    reactor_css = """
+    # ── Arc Reactor visual ──
+    st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
     .jr-wrap{display:flex;flex-direction:column;align-items:center;padding:10px 0}
@@ -790,10 +788,9 @@ with tab_jarvis:
         <div class="jr-title">J.A.R.V.I.S.</div>
         <div class="jr-sub">CHIEF STRATEGY OFFICER · VOICE ENABLED</div>
     </div>
-    """
-    st.markdown(reactor_css, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    # ── Controls row ──
+    # ── Controls ──
     jv1, jv2, jv3 = st.columns([2, 2, 2])
     with jv1:
         st.session_state.jarvis_voice_enabled = st.toggle(
@@ -802,32 +799,9 @@ with tab_jarvis:
     with jv2:
         jarvis_model = st.selectbox("Model", ["Claude (Anthropic)", "Grok (xAI)"], key="jarvis_model")
     with jv3:
-        if st.button("🗑️ Clear JARVIS chat", use_container_width=True):
+        if st.button("🗑️ Clear chat", use_container_width=True):
             st.session_state.jarvis_chat = []
             st.rerun()
-
-    # ── Voice Input (real speech-to-text, no copy/paste) ──
-    st.markdown(
-        '<div style="text-align:center;font-family:Share Tech Mono,monospace;font-size:0.7rem;'
-        'color:#8b5cf6;letter-spacing:1px;margin:4px 0">🎙️ TAP BELOW TO SPEAK — AUTO-SENDS TO JARVIS</div>',
-        unsafe_allow_html=True,
-    )
-
-    voice_text = speech_to_text(
-        language="en",
-        start_prompt="🎙️ Start Recording",
-        stop_prompt="⏹️ Stop & Send to JARVIS",
-        just_once=False,
-        use_container_width=True,
-        key="jarvis_stt",
-    )
-
-    # If voice input received, auto-send to JARVIS
-    if voice_text:
-        st.session_state.jarvis_chat.append({"role": "user", "content": voice_text})
-        st.rerun()
-
-    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
     # ── JARVIS System Prompt ──
     jarvis_system = (
@@ -857,71 +831,64 @@ with tab_jarvis:
                 st.markdown('<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>', unsafe_allow_html=True)
             st.markdown(msg["content"])
 
-    # ── Auto-respond if last message is from user (voice or typed) ──
+    # ── Process pending message ──
     if st.session_state.jarvis_chat and st.session_state.jarvis_chat[-1]["role"] == "user":
-        last_msg = st.session_state.jarvis_chat[-1]["content"]
-        # Check if there's already a response after this
-        needs_response = True
-        if len(st.session_state.jarvis_chat) >= 2:
-            if st.session_state.jarvis_chat[-1]["role"] == "user":
-                needs_response = True  # last is user, needs response
+        with st.chat_message("assistant"):
+            st.markdown('<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>', unsafe_allow_html=True)
+            with st.spinner("JARVIS is thinking..."):
+                j_hist = [{"role": m["role"], "content": m["content"]} for m in st.session_state.jarvis_chat]
+                j_resp = None
+                if "Claude" in jarvis_model:
+                    if not claude_api_key:
+                        j_resp = "🔑 Claude API key not set."
+                    else:
+                        try:
+                            import anthropic
+                            client = anthropic.Anthropic(api_key=claude_api_key)
+                            resp = client.messages.create(
+                                model="claude-sonnet-4-20250514", max_tokens=1024,
+                                system=jarvis_system, messages=j_hist,
+                            )
+                            j_resp = resp.content[0].text
+                        except Exception as e:
+                            j_resp = f"⚠️ Error: {e}"
+                elif "Grok" in jarvis_model:
+                    if not grok_api_key:
+                        j_resp = "🔑 Grok API key not set."
+                    else:
+                        try:
+                            from openai import OpenAI
+                            client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
+                            resp = client.chat.completions.create(
+                                model="grok-3-latest",
+                                messages=[{"role": "system", "content": jarvis_system}, *j_hist],
+                            )
+                            j_resp = resp.choices[0].message.content
+                        except Exception as e:
+                            j_resp = f"⚠️ Error: {e}"
 
-        if needs_response:
-            with st.chat_message("assistant"):
-                st.markdown('<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>', unsafe_allow_html=True)
-                with st.spinner("JARVIS is thinking..."):
-                    jarvis_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.jarvis_chat]
-                    jarvis_response = None
-                    model = jarvis_model
+                st.markdown(j_resp)
+                st.session_state.jarvis_chat.append({"role": "assistant", "content": j_resp})
 
-                    if "Claude" in model:
-                        if not claude_api_key:
-                            jarvis_response = "🔑 Claude API key not set."
-                        else:
-                            try:
-                                import anthropic
-                                client = anthropic.Anthropic(api_key=claude_api_key)
-                                resp = client.messages.create(
-                                    model="claude-sonnet-4-20250514", max_tokens=1024,
-                                    system=jarvis_system, messages=jarvis_history,
-                                )
-                                jarvis_response = resp.content[0].text
-                            except Exception as e:
-                                jarvis_response = f"⚠️ Error: {e}"
-                    elif "Grok" in model:
-                        if not grok_api_key:
-                            jarvis_response = "🔑 Grok API key not set."
-                        else:
-                            try:
-                                from openai import OpenAI
-                                client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
-                                resp = client.chat.completions.create(
-                                    model="grok-3-latest",
-                                    messages=[{"role": "system", "content": jarvis_system}, *jarvis_history],
-                                )
-                                jarvis_response = resp.choices[0].message.content
-                            except Exception as e:
-                                jarvis_response = f"⚠️ Error: {e}"
+                # Voice output via browser TTS
+                if st.session_state.jarvis_voice_enabled and j_resp:
+                    clean = j_resp.replace("**","").replace("*","").replace("#","").replace("`","")
+                    clean = clean.replace("\n"," ").replace("\\","").strip()
+                    # Escape for JS
+                    clean = clean.replace("'", "\\'").replace('"', '\\"')
+                    if len(clean) > 600:
+                        clean = clean[:600] + "... see full response on screen."
+                    st.components.v1.html(f"""<script>
+                    (function(){{const s=window.speechSynthesis;s.cancel();
+                    const u=new SpeechSynthesisUtterance('{clean}');
+                    u.rate=1.0;u.pitch=0.85;
+                    const v=s.getVoices();
+                    const p=v.find(x=>x.name.includes('Daniel')||x.name.includes('Google UK English Male'));
+                    if(p)u.voice=p;s.speak(u)}})();
+                    </script>""", height=0)
 
-                    st.markdown(jarvis_response)
-                    st.session_state.jarvis_chat.append({"role": "assistant", "content": jarvis_response})
-
-                    # Voice output
-                    if st.session_state.jarvis_voice_enabled and jarvis_response:
-                        clean = jarvis_response.replace("**", "").replace("*", "").replace("#", "").replace("`", "")
-                        clean = clean.replace("\n", " ").replace("'", "\\'").replace('"', '\\"').strip()
-                        if len(clean) > 600:
-                            clean = clean[:600] + "... see full response on screen."
-                        st.components.v1.html(f"""<script>
-                        (function(){{const s=window.speechSynthesis;s.cancel();
-                        const u=new SpeechSynthesisUtterance('{clean}');
-                        u.rate=1.0;u.pitch=0.85;const v=s.getVoices();
-                        const p=v.find(x=>x.name.includes('Daniel')||x.name.includes('Google UK English Male'));
-                        if(p)u.voice=p;s.speak(u)}})();
-                        </script>""", height=0)
-
-    # ── Text input (always available) ──
-    if jarvis_typed := st.chat_input("Or type a command for JARVIS..."):
+    # ── Text input — use your phone/browser dictation (mic icon on keyboard) ──
+    if jarvis_typed := st.chat_input("Talk to JARVIS — use 🎙️ on your keyboard for voice..."):
         st.session_state.jarvis_chat.append({"role": "user", "content": jarvis_typed})
         st.rerun()
 
@@ -949,6 +916,14 @@ with tab_jarvis:
         if st.button("⚡ What's urgent?", key="jv_urgent", use_container_width=True):
             st.session_state.jarvis_chat.append({"role": "user", "content": "What are my most urgent priorities right now? What needs immediate attention?"})
             st.rerun()
+
+    st.markdown(
+        '<div style="text-align:center;font-family:Share Tech Mono,monospace;font-size:0.62rem;'
+        'color:#475569;letter-spacing:1px;margin-top:8px">'
+        '💡 PRO TIP: TAP THE 🎙️ ICON ON YOUR PHONE KEYBOARD TO DICTATE HANDS-FREE'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 # =============================================================================
 # TAB 1 — MISSION CONTROL (interactive)
