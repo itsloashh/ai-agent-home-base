@@ -598,6 +598,61 @@ def _call_llm(agent_name, model_choice, claude_key, grok_key, history):
     return "⚠️ No model selected."
 
 # =============================================================================
+# AUTO-ROUTE — Analyze message and pick the best agent
+# =============================================================================
+ROUTING_KEYWORDS = {
+    "JARVIS": ["strategy", "prioritize", "plan", "team", "overview", "coordinate", "decision", "direction", "roadmap", "delegate", "status", "okr", "kpi"],
+    "GROWTH": ["grow", "acquire", "users", "scale", "launch", "funnel", "viral", "marketing", "audience", "traffic", "conversion", "signup"],
+    "RETENTION": ["retain", "churn", "loyalty", "engagement", "community", "feedback", "onboarding", "activation", "nps"],
+    "SKEPTIC": ["risk", "flaw", "problem", "challenge", "wrong", "fail", "weakness", "concern", "doubt", "critique", "bad idea", "devil"],
+    "CLAWD": ["code", "build", "develop", "api", "bug", "debug", "program", "script", "database", "deploy", "function", "backend", "frontend", "python", "javascript", "app"],
+    "SENTINEL": ["security", "audit", "vulnerability", "hack", "protect", "review code", "test", "qa", "quality"],
+    "SCRIBE": ["write", "blog", "tweet", "thread", "email", "copy", "content", "article", "script", "newsletter", "announcement", "post", "caption"],
+    "ATLAS": ["research", "analyze", "competitor", "market", "data", "report", "industry", "trend", "compare", "study", "deep dive"],
+    "TRENDY": ["trending", "viral", "meme", "tiktok", "culture", "hashtag", "what's hot", "popular"],
+    "PIXEL": ["design", "ui", "ux", "layout", "color", "brand", "logo", "mockup", "visual", "style", "font", "aesthetic"],
+    "NOVA": ["timeline", "schedule", "deadline", "production", "asset", "pipeline", "workflow", "project manage"],
+    "VIBE": ["animation", "motion", "video", "transition", "intro", "outro", "effect"],
+    "CLIP": ["clip", "highlight", "excerpt", "cut", "short-form", "repurpose", "podcast", "transcript", "quote"],
+}
+
+def _auto_route(message):
+    """Analyze a message and return the best agent + reasoning."""
+    msg_lower = message.lower()
+    scores = {}
+    for agent_name, keywords in ROUTING_KEYWORDS.items():
+        score = 0
+        matched = []
+        for kw in keywords:
+            if kw in msg_lower:
+                score += 1
+                matched.append(kw)
+        if score > 0:
+            scores[agent_name] = {"score": score, "matched": matched}
+
+    if not scores:
+        # Default to JARVIS for general/unclear messages
+        return "JARVIS", "No specific domain detected — routing to JARVIS as your Chief Strategy Officer for general guidance."
+
+    # Get the top match
+    best = max(scores.items(), key=lambda x: x["score"])
+    agent_name = best[0]
+    matched_kws = best[1]["matched"]
+    agent_info = AGENTS[agent_name]
+
+    # Check for ties or close seconds — mention them
+    sorted_scores = sorted(scores.items(), key=lambda x: x["score"], reverse=True)
+    reasoning = (
+        f"Detected keywords: **{', '.join(matched_kws)}** → "
+        f"Best match is **{agent_name}** ({agent_info['role']})"
+    )
+    if len(sorted_scores) > 1 and sorted_scores[1][1]["score"] == sorted_scores[0][1]["score"]:
+        alt = sorted_scores[1][0]
+        reasoning += f" (also considered **{alt}**)"
+
+    return agent_name, reasoning
+
+# =============================================================================
 # SIDEBAR — API Keys + Agent Roster
 # =============================================================================
 with st.sidebar:
@@ -1284,6 +1339,101 @@ with tab_chat:
         total = sum(len(v) for v in st.session_state.agent_chats.values())
         if total > 0 and st.button("🗑️ Clear ALL agent chats"):
             st.session_state.agent_chats = {name: [] for name in AGENTS}
+            st.rerun()
+
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════
+    # AUTO-ROUTE — Smart agent routing
+    # ══════════════════════════════════════════════════════════════
+    st.markdown('<div class="section-header">🧠 AUTO-ROUTE</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.88rem;color:#94a3b8;margin-bottom:12px">'
+        'Describe your idea or need — the system analyzes it, picks the best agent, '
+        'explains why, and routes your message automatically.</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Initialize auto-route history
+    if "autoroute_history" not in st.session_state:
+        st.session_state.autoroute_history = []
+
+    # Show previous auto-routes
+    for ar in st.session_state.autoroute_history:
+        ar_agent = AGENTS.get(ar["agent"], {})
+        st.markdown(
+            f'<div class="dept-card" style="border-left:3px solid {ar_agent.get("color", "#666")};margin:6px 0">'
+            f'<span class="agent-name">💬 You:</span> '
+            f'<span class="agent-role">{ar["message"][:100]}</span><br/>'
+            f'<div style="margin-top:4px;font-family:Share Tech Mono,monospace;font-size:0.72rem;color:#8b5cf6">'
+            f'🧠 Routed to {ar_agent.get("icon", "")} {ar["agent"]} — {ar["reasoning"]}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        with st.expander(f'{ar_agent.get("icon", "")} {ar["agent"]} response', expanded=False):
+            st.markdown(ar["response"])
+
+    # Auto-route input
+    with st.form("autoroute_form"):
+        ar_message = st.text_area(
+            "What do you need?",
+            placeholder="e.g. I want to build a referral program... / Write me a launch tweet... / Is this idea worth pursuing?...",
+            height=80,
+            key="ar_message",
+        )
+        ar_model = st.selectbox("Model", ["Claude (Anthropic)", "Grok (xAI)"], key="ar_model")
+        ar_submit = st.form_submit_button("🧠 Auto-Route & Execute", use_container_width=True)
+
+    if ar_submit and ar_message:
+        # Step 1: Determine best agent
+        routed_agent, reasoning = _auto_route(ar_message)
+        routed_info = AGENTS[routed_agent]
+
+        st.markdown(
+            f'<div class="dept-card" style="border-left:3px solid {routed_info["color"]};margin:8px 0">'
+            f'<div style="font-family:Share Tech Mono,monospace;font-size:0.75rem;color:#8b5cf6;margin-bottom:6px">'
+            f'🧠 AUTO-ROUTE DECISION</div>'
+            f'<span class="agent-name">{routed_info["icon"]} {routed_agent}</span> · '
+            f'<span class="agent-role">{routed_info["role"]}</span><br/>'
+            f'<div style="margin-top:4px;font-family:Rajdhani,sans-serif;font-size:0.82rem;color:#94a3b8">'
+            f'{reasoning}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # Step 2: Send to that agent
+        with st.spinner(f"{routed_info['icon']} {routed_agent} is working on this..."):
+            route_prompt = (
+                f"CEO Loash has a request that was auto-routed to you as the best agent.\n\n"
+                f"REQUEST: {ar_message}\n\n"
+                f"Provide a thorough, actionable response. If you think another agent should also be consulted, "
+                f"mention that at the end of your response."
+            )
+            result = _call_llm(
+                routed_agent, ar_model, claude_api_key, grok_api_key,
+                [{"role": "user", "content": route_prompt}],
+            )
+            st.markdown(result)
+
+            # Save to history
+            st.session_state.autoroute_history.append({
+                "message": ar_message,
+                "agent": routed_agent,
+                "reasoning": reasoning,
+                "response": result,
+            })
+
+            # Also save to that agent's chat memory
+            st.session_state.agent_chats[routed_agent].append(
+                {"role": "user", "content": f"[Auto-routed] {ar_message}"}
+            )
+            st.session_state.agent_chats[routed_agent].append(
+                {"role": "assistant", "content": result}
+            )
+
+    if st.session_state.autoroute_history:
+        if st.button("🗑️ Clear auto-route history"):
+            st.session_state.autoroute_history = []
             st.rerun()
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
