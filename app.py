@@ -738,280 +738,62 @@ tab_jarvis, tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
 # TAB 0 — JARVIS VOICE (CEO Command Center)
 # =============================================================================
 with tab_jarvis:
-    # Session state for JARVIS voice tab
+    from streamlit_mic_recorder import speech_to_text
+
     if "jarvis_chat" not in st.session_state:
         st.session_state.jarvis_chat = []
     if "jarvis_voice_enabled" not in st.session_state:
         st.session_state.jarvis_voice_enabled = True
-    if "voice_transcript" not in st.session_state:
-        st.session_state.voice_transcript = ""
 
-    # ── JARVIS Arc Reactor UI ──
-    jarvis_arc_html = """
+    # ── Arc Reactor visual (decorative + status) ──
+    reactor_css = """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-
-    .jarvis-container {
-        display: flex; flex-direction: column; align-items: center;
-        padding: 20px 0; position: relative;
-    }
-    .arc-reactor-wrap {
-        position: relative; width: 180px; height: 180px;
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; user-select: none;
-    }
-    /* Outer ring */
-    .arc-ring-outer {
-        position: absolute; width: 180px; height: 180px;
-        border-radius: 50%; border: 2px solid rgba(6,182,212,0.3);
-        animation: spin-slow 8s linear infinite;
-    }
-    .arc-ring-outer::before {
-        content: ''; position: absolute; top: -2px; left: 50%; width: 8px; height: 8px;
-        background: #06b6d4; border-radius: 50%; transform: translateX(-50%);
-        box-shadow: 0 0 10px #06b6d4;
-    }
-    /* Middle ring */
-    .arc-ring-mid {
-        position: absolute; width: 140px; height: 140px;
-        border-radius: 50%; border: 1.5px solid rgba(139,92,246,0.4);
-        animation: spin-reverse 5s linear infinite;
-    }
-    .arc-ring-mid::before {
-        content: ''; position: absolute; bottom: -2px; left: 50%; width: 6px; height: 6px;
-        background: #8b5cf6; border-radius: 50%; transform: translateX(-50%);
-        box-shadow: 0 0 8px #8b5cf6;
-    }
-    /* Inner ring */
-    .arc-ring-inner {
-        position: absolute; width: 100px; height: 100px;
-        border-radius: 50%; border: 1px solid rgba(6,182,212,0.3);
-        animation: spin-slow 3s linear infinite;
-    }
-    /* Core */
-    .arc-core {
-        position: relative; width: 70px; height: 70px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 2; transition: all 0.5s ease;
-    }
-    .arc-core-inner {
-        width: 40px; height: 40px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(6,182,212,0.3) 0%, rgba(139,92,246,0.1) 100%);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 18px; transition: all 0.5s ease;
-        animation: pulse-core 2s ease-in-out infinite;
-    }
-    /* Pulse glow behind reactor */
-    .arc-glow {
-        position: absolute; width: 200px; height: 200px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%);
-        animation: pulse-glow 3s ease-in-out infinite;
-        transition: all 0.5s ease;
-    }
-
-    /* STATE: IDLE (blue) */
-    .state-idle .arc-glow { background: radial-gradient(circle, rgba(6,182,212,0.08) 0%, transparent 70%); }
-    .state-idle .arc-core-inner { background: radial-gradient(circle, rgba(6,182,212,0.3) 0%, rgba(139,92,246,0.1) 100%); }
-
-    /* STATE: LISTENING (red) */
-    .state-listening .arc-glow { background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%); }
-    .state-listening .arc-ring-outer { border-color: rgba(239,68,68,0.5); }
-    .state-listening .arc-ring-outer::before { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
-    .state-listening .arc-ring-mid { border-color: rgba(239,68,68,0.4); }
-    .state-listening .arc-ring-mid::before { background: #ef4444; box-shadow: 0 0 12px #ef4444; }
-    .state-listening .arc-core-inner {
-        background: radial-gradient(circle, rgba(239,68,68,0.4) 0%, rgba(239,68,68,0.1) 100%);
-        animation: pulse-core-fast 0.8s ease-in-out infinite;
-    }
-
-    /* STATE: THINKING (purple) */
-    .state-thinking .arc-glow { background: radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%); }
-    .state-thinking .arc-ring-outer { border-color: rgba(139,92,246,0.5); animation-duration: 2s; }
-    .state-thinking .arc-ring-outer::before { background: #8b5cf6; box-shadow: 0 0 15px #8b5cf6; }
-    .state-thinking .arc-ring-mid { border-color: rgba(139,92,246,0.5); animation-duration: 1.5s; }
-    .state-thinking .arc-core-inner {
-        background: radial-gradient(circle, rgba(139,92,246,0.4) 0%, rgba(139,92,246,0.1) 100%);
-        animation: pulse-core 1s ease-in-out infinite;
-    }
-
-    /* STATE: SPEAKING (green) */
-    .state-speaking .arc-glow { background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%); }
-    .state-speaking .arc-ring-outer { border-color: rgba(16,185,129,0.5); }
-    .state-speaking .arc-ring-outer::before { background: #10b981; box-shadow: 0 0 15px #10b981; }
-    .state-speaking .arc-ring-mid { border-color: rgba(16,185,129,0.4); }
-    .state-speaking .arc-ring-mid::before { background: #10b981; box-shadow: 0 0 12px #10b981; }
-    .state-speaking .arc-core-inner {
-        background: radial-gradient(circle, rgba(16,185,129,0.4) 0%, rgba(16,185,129,0.1) 100%);
-        animation: pulse-core 1.2s ease-in-out infinite;
-    }
-
-    @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-    @keyframes pulse-core { 0%,100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.15); opacity: 1; } }
-    @keyframes pulse-core-fast { 0%,100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.3); opacity: 1; } }
-    @keyframes pulse-glow { 0%,100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 0.8; } }
-
-    .jarvis-title {
-        font-family: 'Orbitron', monospace; font-size: 1.3rem; font-weight: 900;
-        background: linear-gradient(135deg, #06b6d4, #8b5cf6);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        letter-spacing: 4px; margin-top: 16px;
-    }
-    .jarvis-status {
-        font-family: 'Share Tech Mono', monospace; font-size: 0.7rem;
-        color: #94a3b8; letter-spacing: 2px; margin-top: 4px;
-        text-transform: uppercase; transition: color 0.3s ease;
-    }
-    .state-listening .jarvis-status { color: #ef4444; }
-    .state-thinking .jarvis-status { color: #8b5cf6; }
-    .state-speaking .jarvis-status { color: #10b981; }
-    .jarvis-transcript {
-        font-family: 'Rajdhani', sans-serif; font-size: 0.95rem;
-        color: #e2e8f0; margin-top: 12px; min-height: 24px;
-        max-width: 500px; text-align: center;
-    }
-    .send-btn {
-        margin-top: 10px; padding: 8px 32px; border-radius: 8px;
-        border: 1px solid rgba(139,92,246,0.5); background: rgba(139,92,246,0.1);
-        color: #8b5cf6; font-family: 'Orbitron', monospace; font-size: 0.7rem;
-        letter-spacing: 2px; cursor: pointer; transition: all 0.3s ease; display: none;
-    }
-    .send-btn:hover { background: rgba(139,92,246,0.2); box-shadow: 0 0 15px rgba(139,92,246,0.3); }
+    .jr-wrap{display:flex;flex-direction:column;align-items:center;padding:10px 0}
+    .jr-reactor{position:relative;width:150px;height:150px;display:flex;align-items:center;justify-content:center}
+    .jr-glow{position:absolute;width:160px;height:160px;border-radius:50%;
+        background:radial-gradient(circle,rgba(6,182,212,0.08) 0%,transparent 70%);
+        animation:jrPulse 3s ease-in-out infinite}
+    .jr-r1{position:absolute;width:150px;height:150px;border-radius:50%;
+        border:2px solid rgba(6,182,212,0.3);animation:jrSpin 8s linear infinite}
+    .jr-r1::before{content:'';position:absolute;top:-2px;left:50%;width:7px;height:7px;
+        background:#06b6d4;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 10px #06b6d4}
+    .jr-r2{position:absolute;width:115px;height:115px;border-radius:50%;
+        border:1.5px solid rgba(139,92,246,0.4);animation:jrSpin 5s linear infinite reverse}
+    .jr-r2::before{content:'';position:absolute;bottom:-2px;left:50%;width:5px;height:5px;
+        background:#8b5cf6;border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #8b5cf6}
+    .jr-r3{position:absolute;width:80px;height:80px;border-radius:50%;
+        border:1px solid rgba(6,182,212,0.25);animation:jrSpin 3s linear infinite}
+    .jr-core{width:50px;height:50px;border-radius:50%;z-index:2;
+        background:radial-gradient(circle,rgba(6,182,212,0.25) 0%,transparent 70%);
+        display:flex;align-items:center;justify-content:center;
+        animation:jrCorePulse 2.5s ease-in-out infinite}
+    .jr-core-dot{width:20px;height:20px;border-radius:50%;
+        background:radial-gradient(circle,rgba(6,182,212,0.6),rgba(139,92,246,0.2));
+        box-shadow:0 0 12px rgba(6,182,212,0.3)}
+    .jr-title{font-family:'Orbitron',monospace;font-size:1.2rem;font-weight:900;
+        background:linear-gradient(135deg,#06b6d4,#8b5cf6);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+        letter-spacing:4px;margin-top:12px}
+    .jr-sub{font-family:'Share Tech Mono',monospace;font-size:0.65rem;
+        color:#64748b;letter-spacing:2px;margin-top:2px}
+    @keyframes jrSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+    @keyframes jrPulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.08);opacity:.8}}
+    @keyframes jrCorePulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.12);opacity:1}}
     </style>
-
-    <div class="jarvis-container state-idle" id="jarvis-ui">
-        <div class="arc-reactor-wrap" onclick="toggleVoice()">
-            <div class="arc-glow"></div>
-            <div class="arc-ring-outer"></div>
-            <div class="arc-ring-mid"></div>
-            <div class="arc-ring-inner"></div>
-            <div class="arc-core"><div class="arc-core-inner">🎙️</div></div>
+    <div class="jr-wrap">
+        <div class="jr-reactor">
+            <div class="jr-glow"></div><div class="jr-r1"></div>
+            <div class="jr-r2"></div><div class="jr-r3"></div>
+            <div class="jr-core"><div class="jr-core-dot"></div></div>
         </div>
-        <div class="jarvis-title">J.A.R.V.I.S.</div>
-        <div class="jarvis-status" id="j-status">TAP THE REACTOR TO SPEAK</div>
-        <div class="jarvis-transcript" id="j-transcript"></div>
-        <button class="send-btn" id="j-send" onclick="sendTranscript()">📋 COPY TO CLIPBOARD</button>
+        <div class="jr-title">J.A.R.V.I.S.</div>
+        <div class="jr-sub">CHIEF STRATEGY OFFICER · VOICE ENABLED</div>
     </div>
-
-    <script>
-    let jRecognition = null;
-    let jIsListening = false;
-    let jFinalTranscript = '';
-
-    function setJState(state) {
-        const ui = document.getElementById('jarvis-ui');
-        ui.className = 'jarvis-container state-' + state;
-    }
-
-    function toggleVoice() {
-        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            document.getElementById('j-status').textContent = 'VOICE NOT SUPPORTED · USE TEXT INPUT';
-            return;
-        }
-        if (jIsListening) { if (jRecognition) jRecognition.stop(); }
-        else { startJVoice(); }
-    }
-
-    function startJVoice() {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        jRecognition = new SR();
-        jRecognition.continuous = false;
-        jRecognition.interimResults = true;
-        jRecognition.lang = 'en-US';
-        jFinalTranscript = '';
-
-        jRecognition.onstart = function() {
-            jIsListening = true;
-            setJState('listening');
-            document.getElementById('j-status').textContent = '● LISTENING...';
-            document.getElementById('j-transcript').textContent = '';
-            document.getElementById('j-send').style.display = 'none';
-        };
-
-        jRecognition.onresult = function(e) {
-            let interim = '';
-            for (let i = e.resultIndex; i < e.results.length; i++) {
-                if (e.results[i].isFinal) jFinalTranscript += e.results[i][0].transcript;
-                else interim += e.results[i][0].transcript;
-            }
-            document.getElementById('j-transcript').textContent = jFinalTranscript || interim;
-        };
-
-        jRecognition.onend = function() {
-            jIsListening = false;
-            if (jFinalTranscript) {
-                setJState('idle');
-                document.getElementById('j-status').textContent = 'TAP SEND OR THE REACTOR TO RE-RECORD';
-                document.getElementById('j-send').style.display = 'inline-block';
-                document.getElementById('j-transcript').textContent = jFinalTranscript;
-            } else {
-                setJState('idle');
-                document.getElementById('j-status').textContent = 'NO SPEECH DETECTED · TAP TO TRY AGAIN';
-            }
-        };
-
-        jRecognition.onerror = function(e) {
-            jIsListening = false;
-            setJState('idle');
-            document.getElementById('j-status').textContent = e.error.toUpperCase() + ' · TAP TO TRY AGAIN';
-        };
-
-        jRecognition.start();
-    }
-
-    function sendTranscript() {
-        if (jFinalTranscript) {
-            // Copy to clipboard
-            navigator.clipboard.writeText(jFinalTranscript).then(function() {
-                document.getElementById('j-status').textContent = '✅ COPIED! PASTE IN THE INPUT BELOW & HIT ENTER';
-                document.getElementById('j-send').style.display = 'none';
-                setJState('idle');
-            }).catch(function() {
-                // Fallback: select the text
-                document.getElementById('j-status').textContent = 'COPY THE TEXT ABOVE → PASTE IN INPUT BELOW';
-                document.getElementById('j-send').style.display = 'none';
-                setJState('idle');
-            });
-        }
-    }
-
-    function speakJarvis(text) {
-        if ('speechSynthesis' in window && text) {
-            setJState('speaking');
-            document.getElementById('j-status').textContent = '● JARVIS SPEAKING...';
-            const synth = window.speechSynthesis;
-            synth.cancel();
-            const utter = new SpeechSynthesisUtterance(text);
-            utter.rate = 1.0; utter.pitch = 0.85; utter.volume = 1.0;
-            const voices = synth.getVoices();
-            const pref = voices.find(v =>
-                v.name.includes('Daniel') || v.name.includes('Google UK English Male') ||
-                v.name.includes('Samantha') || (v.lang === 'en-US' && v.name.includes('Male'))
-            );
-            if (pref) utter.voice = pref;
-            utter.onend = function() {
-                setJState('idle');
-                document.getElementById('j-status').textContent = 'TAP THE REACTOR TO SPEAK';
-            };
-            synth.speak(utter);
-        }
-    }
-    </script>
-    <div id="j-data" data-transcript="" style="display:none"></div>
     """
-    st.components.v1.html(jarvis_arc_html, height=300)
+    st.markdown(reactor_css, unsafe_allow_html=True)
 
-    # ── Voice status note ──
-    st.markdown(
-        '<div style="text-align:center;font-family:Share Tech Mono,monospace;font-size:0.68rem;'
-        'color:#64748b;letter-spacing:1px;margin:-8px 0 8px">'
-        'TAP REACTOR TO SPEAK → COPY TRANSCRIPT BELOW → HIT ENTER &nbsp;|&nbsp; OR JUST TYPE DIRECTLY'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    # ── Voice toggle + controls ──
+    # ── Controls row ──
     jv1, jv2, jv3 = st.columns([2, 2, 2])
     with jv1:
         st.session_state.jarvis_voice_enabled = st.toggle(
@@ -1024,7 +806,30 @@ with tab_jarvis:
             st.session_state.jarvis_chat = []
             st.rerun()
 
-    # ── JARVIS System Prompt (enhanced) ──
+    # ── Voice Input (real speech-to-text, no copy/paste) ──
+    st.markdown(
+        '<div style="text-align:center;font-family:Share Tech Mono,monospace;font-size:0.7rem;'
+        'color:#8b5cf6;letter-spacing:1px;margin:4px 0">🎙️ TAP BELOW TO SPEAK — AUTO-SENDS TO JARVIS</div>',
+        unsafe_allow_html=True,
+    )
+
+    voice_text = speech_to_text(
+        language="en",
+        start_prompt="🎙️ Start Recording",
+        stop_prompt="⏹️ Stop & Send to JARVIS",
+        just_once=False,
+        use_container_width=True,
+        key="jarvis_stt",
+    )
+
+    # If voice input received, auto-send to JARVIS
+    if voice_text:
+        st.session_state.jarvis_chat.append({"role": "user", "content": voice_text})
+        st.rerun()
+
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ── JARVIS System Prompt ──
     jarvis_system = (
         "You are J.A.R.V.I.S., the Chief Strategy Officer and personal AI assistant for CEO Loash. "
         "You are voice-enabled, so keep responses conversational and concise — like you're speaking to Loash directly. "
@@ -1033,108 +838,94 @@ with tab_jarvis:
         "SCRIBE (Content), ATLAS, TRENDY (Research), PIXEL, NOVA, VIBE (Creative), CLIP (Product).\n\n"
         "CAPABILITIES:\n"
         "1. Strategic advice and decision-making\n"
-        "2. Delegate tasks to the right agent — tell Loash which agent to use and why\n"
-        "3. App & tool recommendations — when asked what tools or apps to use for a task, "
-        "recommend the BEST FREE options. You know about: Canva (design), Figma (UI/UX), "
-        "CapCut (video editing), DaVinci Resolve (pro video), OBS (streaming/recording), "
-        "Notion (project management), Trello (kanban), Obsidian (notes), VS Code (coding), "
-        "GitHub (code hosting), Streamlit (dashboards), Vercel (deployment), "
-        "Buffer/Later (social scheduling), Mailchimp (email, free tier), "
-        "Google Analytics (analytics), Hotjar (heatmaps, free tier), "
-        "ChatGPT/Claude/Grok (AI), Midjourney/DALL-E (AI images), "
-        "Descript (podcast editing), Audacity (audio), GIMP (image editing), "
-        "Blender (3D/motion), Loom (screen recording), Calendly (scheduling), "
-        "Zapier/Make (automation free tiers), Supabase (database, free tier), "
-        "Firebase (backend, free tier), Cloudflare (CDN/DNS, free).\n"
-        "4. Priority management — help Loash decide what to focus on\n"
-        "5. Quick answers — be direct, no fluff\n\n"
-        "Keep responses SHORT for voice (2-4 sentences for simple questions, longer for complex). "
+        "2. Delegate tasks — tell Loash which agent to use and why\n"
+        "3. App & tool recommendations — recommend BEST FREE options: Canva (design), Figma (UI/UX), "
+        "CapCut (video), DaVinci Resolve (pro video), OBS (streaming), Notion (PM), "
+        "VS Code (coding), GitHub (code), Streamlit (dashboards), Buffer (social), "
+        "Mailchimp (email), ChatGPT/Claude/Grok (AI), Descript (podcast), "
+        "Audacity (audio), GIMP (images), Blender (3D), Loom (recording), "
+        "Zapier/Make (automation), Supabase/Firebase (backend), Cloudflare (CDN).\n"
+        "4. Priority management\n5. Quick answers — be direct\n\n"
+        "Keep responses SHORT for voice (2-4 sentences for simple, longer for complex). "
         "Always address Loash by name. Be confident and decisive."
     )
 
-    # ── Display JARVIS conversation ──
+    # ── Display conversation ──
     for msg in st.session_state.jarvis_chat:
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
-                st.markdown(
-                    '<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown('<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>', unsafe_allow_html=True)
             st.markdown(msg["content"])
 
-    # ── Chat input (text — also receives voice transcripts) ──
-    if jarvis_prompt := st.chat_input("Speak or type a command for JARVIS..."):
-        st.session_state.jarvis_chat.append({"role": "user", "content": jarvis_prompt})
-        with st.chat_message("user"):
-            st.markdown(jarvis_prompt)
+    # ── Auto-respond if last message is from user (voice or typed) ──
+    if st.session_state.jarvis_chat and st.session_state.jarvis_chat[-1]["role"] == "user":
+        last_msg = st.session_state.jarvis_chat[-1]["content"]
+        # Check if there's already a response after this
+        needs_response = True
+        if len(st.session_state.jarvis_chat) >= 2:
+            if st.session_state.jarvis_chat[-1]["role"] == "user":
+                needs_response = True  # last is user, needs response
 
-        with st.chat_message("assistant"):
-            st.markdown(
-                '<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>',
-                unsafe_allow_html=True,
-            )
-            with st.spinner("JARVIS is thinking..."):
-                jarvis_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.jarvis_chat]
-                jarvis_response = None
+        if needs_response:
+            with st.chat_message("assistant"):
+                st.markdown('<span class="chat-agent-badge">🤖 J.A.R.V.I.S.</span>', unsafe_allow_html=True)
+                with st.spinner("JARVIS is thinking..."):
+                    jarvis_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.jarvis_chat]
+                    jarvis_response = None
+                    model = jarvis_model
 
-                model = jarvis_model
-                if "Claude" in model:
-                    if not claude_api_key:
-                        jarvis_response = "🔑 Claude API key not set."
-                    else:
-                        try:
-                            import anthropic
-                            client = anthropic.Anthropic(api_key=claude_api_key)
-                            resp = client.messages.create(
-                                model="claude-sonnet-4-20250514",
-                                max_tokens=1024,
-                                system=jarvis_system,
-                                messages=jarvis_history,
-                            )
-                            jarvis_response = resp.content[0].text
-                        except Exception as e:
-                            jarvis_response = f"⚠️ Error: {e}"
-                elif "Grok" in model:
-                    if not grok_api_key:
-                        jarvis_response = "🔑 Grok API key not set."
-                    else:
-                        try:
-                            from openai import OpenAI
-                            client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
-                            resp = client.chat.completions.create(
-                                model="grok-3-latest",
-                                messages=[{"role": "system", "content": jarvis_system}, *jarvis_history],
-                            )
-                            jarvis_response = resp.choices[0].message.content
-                        except Exception as e:
-                            jarvis_response = f"⚠️ Error: {e}"
+                    if "Claude" in model:
+                        if not claude_api_key:
+                            jarvis_response = "🔑 Claude API key not set."
+                        else:
+                            try:
+                                import anthropic
+                                client = anthropic.Anthropic(api_key=claude_api_key)
+                                resp = client.messages.create(
+                                    model="claude-sonnet-4-20250514", max_tokens=1024,
+                                    system=jarvis_system, messages=jarvis_history,
+                                )
+                                jarvis_response = resp.content[0].text
+                            except Exception as e:
+                                jarvis_response = f"⚠️ Error: {e}"
+                    elif "Grok" in model:
+                        if not grok_api_key:
+                            jarvis_response = "🔑 Grok API key not set."
+                        else:
+                            try:
+                                from openai import OpenAI
+                                client = OpenAI(api_key=grok_api_key, base_url="https://api.x.ai/v1")
+                                resp = client.chat.completions.create(
+                                    model="grok-3-latest",
+                                    messages=[{"role": "system", "content": jarvis_system}, *jarvis_history],
+                                )
+                                jarvis_response = resp.choices[0].message.content
+                            except Exception as e:
+                                jarvis_response = f"⚠️ Error: {e}"
 
-                st.markdown(jarvis_response)
-                st.session_state.jarvis_chat.append({"role": "assistant", "content": jarvis_response})
+                    st.markdown(jarvis_response)
+                    st.session_state.jarvis_chat.append({"role": "assistant", "content": jarvis_response})
 
-                # Trigger text-to-speech if enabled
-                if st.session_state.jarvis_voice_enabled and jarvis_response:
-                    clean_text = jarvis_response.replace("**", "").replace("*", "").replace("#", "").replace("`", "")
-                    clean_text = clean_text.replace("\n", " ").replace("'", "\\'").replace('"', '\\"').strip()
-                    if len(clean_text) > 600:
-                        clean_text = clean_text[:600] + "... see full response on screen."
-                    speak_js = f"""
-                    <script>
-                    (function() {{
-                        const synth = window.speechSynthesis;
-                        synth.cancel();
-                        const u = new SpeechSynthesisUtterance('{clean_text}');
-                        u.rate = 1.0; u.pitch = 0.85;
-                        const v = synth.getVoices();
-                        const p = v.find(x => x.name.includes('Daniel') || x.name.includes('Google UK English Male'));
-                        if (p) u.voice = p;
-                        synth.speak(u);
-                    }})();
-                    </script>
-                    """
-                    st.components.v1.html(speak_js, height=0)
+                    # Voice output
+                    if st.session_state.jarvis_voice_enabled and jarvis_response:
+                        clean = jarvis_response.replace("**", "").replace("*", "").replace("#", "").replace("`", "")
+                        clean = clean.replace("\n", " ").replace("'", "\\'").replace('"', '\\"').strip()
+                        if len(clean) > 600:
+                            clean = clean[:600] + "... see full response on screen."
+                        st.components.v1.html(f"""<script>
+                        (function(){{const s=window.speechSynthesis;s.cancel();
+                        const u=new SpeechSynthesisUtterance('{clean}');
+                        u.rate=1.0;u.pitch=0.85;const v=s.getVoices();
+                        const p=v.find(x=>x.name.includes('Daniel')||x.name.includes('Google UK English Male'));
+                        if(p)u.voice=p;s.speak(u)}})();
+                        </script>""", height=0)
 
-    # ── Quick command buttons ──
+    # ── Text input (always available) ──
+    if jarvis_typed := st.chat_input("Or type a command for JARVIS..."):
+        st.session_state.jarvis_chat.append({"role": "user", "content": jarvis_typed})
+        st.rerun()
+
+    # ── Quick commands ──
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
     st.markdown(
         '<div style="font-family:Share Tech Mono,monospace;font-size:0.72rem;color:#94a3b8;'
@@ -1158,8 +949,6 @@ with tab_jarvis:
         if st.button("⚡ What's urgent?", key="jv_urgent", use_container_width=True):
             st.session_state.jarvis_chat.append({"role": "user", "content": "What are my most urgent priorities right now? What needs immediate attention?"})
             st.rerun()
-
-    st.caption("💡 Tap the reactor to speak → tap SEND TO JARVIS → or just type below. Voice works best on Chrome & Safari.")
 
 # =============================================================================
 # TAB 1 — MISSION CONTROL (interactive)
