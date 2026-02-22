@@ -653,6 +653,165 @@ def _auto_route(message):
     return agent_name, reasoning
 
 # =============================================================================
+# DISCORD INTEGRATION — Deliver agent outputs to Discord channels
+# =============================================================================
+DISCORD_WEBHOOKS = {
+    "jarvis-briefings":   "",
+    "council-decisions":  "",
+    "content-pipeline":   "",
+    "dev-updates":        "",
+    "research-intel":     "",
+    "creative-assets":    "",
+    "task-completions":   "",
+    "ceo-approvals":      "",
+}
+
+def _load_discord_webhooks():
+    """Load Discord webhooks from Streamlit secrets."""
+    try:
+        DISCORD_WEBHOOKS["jarvis-briefings"]  = st.secrets.get("DISCORD_JARVIS", "")
+        DISCORD_WEBHOOKS["council-decisions"] = st.secrets.get("DISCORD_COUNCIL", "")
+        DISCORD_WEBHOOKS["content-pipeline"]  = st.secrets.get("DISCORD_CONTENT", "")
+        DISCORD_WEBHOOKS["dev-updates"]       = st.secrets.get("DISCORD_DEV", "")
+        DISCORD_WEBHOOKS["research-intel"]    = st.secrets.get("DISCORD_RESEARCH", "")
+        DISCORD_WEBHOOKS["creative-assets"]   = st.secrets.get("DISCORD_CREATIVE", "")
+        DISCORD_WEBHOOKS["task-completions"]  = st.secrets.get("DISCORD_TASKS", "")
+        DISCORD_WEBHOOKS["ceo-approvals"]     = st.secrets.get("DISCORD_APPROVALS", "")
+    except Exception:
+        pass
+
+_load_discord_webhooks()
+
+# Map departments to Discord channels
+DEPT_TO_CHANNEL = {
+    "EXECUTIVE": "jarvis-briefings",
+    "COUNCIL":   "council-decisions",
+    "CONTENT":   "content-pipeline",
+    "DEVELOPMENT": "dev-updates",
+    "RESEARCH":  "research-intel",
+    "CREATIVE":  "creative-assets",
+    "PRODUCT":   "creative-assets",
+}
+
+def _send_discord(channel, title, message, agent_name="SYSTEM", color=0x8b5cf6):
+    """Send a rich embed message to a Discord channel via webhook."""
+    import requests as req
+    webhook_url = DISCORD_WEBHOOKS.get(channel, "")
+    if not webhook_url:
+        return False
+
+    # Truncate message to Discord's 4096 char embed limit
+    if len(message) > 3800:
+        message = message[:3800] + "\n\n*... truncated — see full output in dashboard*"
+
+    agent_info = AGENTS.get(agent_name, {})
+    icon = agent_info.get("icon", "🤖") if agent_info else "🤖"
+
+    payload = {
+        "username": f"AI Agent Home Base",
+        "embeds": [{
+            "title": f"{icon} {title}",
+            "description": message,
+            "color": color,
+            "footer": {
+                "text": f"Agent: {agent_name} · {datetime.now().strftime('%b %d %Y %I:%M %p')}"
+            },
+        }],
+    }
+
+    try:
+        resp = req.post(webhook_url, json=payload, timeout=10)
+        return resp.status_code in (200, 204)
+    except Exception:
+        return False
+
+def _send_task_to_discord(task, result, agent_name):
+    """Send a completed task to the appropriate Discord channel."""
+    agent_info = AGENTS.get(agent_name, {})
+    dept = agent_info.get("dept", "EXECUTIVE")
+    channel = DEPT_TO_CHANNEL.get(dept, "task-completions")
+
+    # Also send to task-completions as a log
+    _send_discord("task-completions",
+        f"Task Completed: {task['title']}",
+        f"**Assigned to:** {agent_name}\n**Priority:** {task['priority']}\n\n{result[:2000]}",
+        agent_name, 0x22c55e)
+
+    # Send full output to department channel
+    _send_discord(channel,
+        f"{task['title']}",
+        result,
+        agent_name)
+
+def _send_chain_to_discord(chain_name, steps_results, final_output):
+    """Send a multi-agent chain result to Discord."""
+    summary = f"**Chain: {chain_name}**\n\n"
+    for step in steps_results:
+        summary += f"**{step['agent']}** ({step['role']}):\n{step['result'][:500]}\n\n---\n\n"
+
+    # Send summary to task-completions
+    _send_discord("task-completions",
+        f"🔗 Chain Complete: {chain_name}",
+        summary[:3800],
+        steps_results[-1]["agent"], 0x06b6d4)
+
+# =============================================================================
+# MULTI-AGENT CHAIN — Route work through agent sequences
+# =============================================================================
+CHAIN_PRESETS = {
+    "📝 Research → Write → Review": {
+        "description": "ATLAS researches, SCRIBE writes content, SKEPTIC reviews quality",
+        "agents": ["ATLAS", "SCRIBE", "SKEPTIC"],
+        "handoff_prompts": [
+            "Research the following topic thoroughly. Provide key findings, data points, and insights:\n\n{input}",
+            "Using the research below, write polished content. Make it engaging, clear, and actionable:\n\n{prev_output}",
+            "Review the content below for quality, accuracy, and persuasiveness. Flag issues and suggest improvements:\n\n{prev_output}",
+        ],
+    },
+    "💻 Code → Security → Deploy": {
+        "description": "CLAWD builds, SENTINEL audits security, JARVIS approves",
+        "agents": ["CLAWD", "SENTINEL", "JARVIS"],
+        "handoff_prompts": [
+            "Build the following as requested. Provide complete, production-ready code:\n\n{input}",
+            "Audit the code below for security vulnerabilities, bugs, and best practices:\n\n{prev_output}",
+            "Review the code and security audit. Provide final approval or list blocking issues:\n\n{prev_output}",
+        ],
+    },
+    "📈 Growth → Skeptic → Plan": {
+        "description": "GROWTH proposes strategy, SKEPTIC stress-tests, RETENTION builds final plan",
+        "agents": ["GROWTH", "SKEPTIC", "RETENTION"],
+        "handoff_prompts": [
+            "Develop an aggressive growth strategy for:\n\n{input}",
+            "Stress-test this growth strategy. Find flaws, risks, and blind spots:\n\n{prev_output}",
+            "Synthesize the growth strategy and critique into a balanced, actionable plan with mitigations:\n\n{prev_output}",
+        ],
+    },
+    "🎨 Design → Produce → Clip": {
+        "description": "PIXEL designs concept, NOVA builds production plan, CLIP extracts key assets",
+        "agents": ["PIXEL", "NOVA", "CLIP"],
+        "handoff_prompts": [
+            "Create a detailed design concept for:\n\n{input}",
+            "Build a production timeline and asset list from this design concept:\n\n{prev_output}",
+            "Identify the top clips, excerpts, and reusable assets from this production:\n\n{prev_output}",
+        ],
+    },
+    "🔬 Deep Research → Brief → Announce": {
+        "description": "ATLAS deep dives, JARVIS creates executive brief, SCRIBE writes announcement",
+        "agents": ["ATLAS", "JARVIS", "SCRIBE"],
+        "handoff_prompts": [
+            "Do a comprehensive deep dive research on:\n\n{input}",
+            "Summarize this research into a concise executive brief for CEO. Key findings, implications, and recommended actions:\n\n{prev_output}",
+            "Write a public announcement or blog post based on this executive brief:\n\n{prev_output}",
+        ],
+    },
+    "🛠️ Custom Chain": {
+        "description": "Pick your own agents and order",
+        "agents": [],
+        "handoff_prompts": [],
+    },
+}
+
+# =============================================================================
 # SIDEBAR — API Keys + Agent Roster
 # =============================================================================
 with st.sidebar:
@@ -730,8 +889,8 @@ st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 # =============================================================================
 # TABS
 # =============================================================================
-tab_jarvis, tab_mission, tab_tasks, tab_chat, tab_org, tab_office = st.tabs(
-    ["🎙️ JARVIS", "🎯 MISSION CONTROL", "📋 TASKS", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
+tab_jarvis, tab_mission, tab_tasks, tab_chains, tab_chat, tab_org, tab_office = st.tabs(
+    ["🎙️ JARVIS", "🎯 MISSION CONTROL", "📋 TASKS", "🔗 CHAINS", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
 )
 
 # =============================================================================
@@ -1428,6 +1587,8 @@ with tab_tasks:
                     )
                     selected_task["result"] = result
                     selected_task["status"] = "Done"
+                    # Auto-send to Discord
+                    _send_task_to_discord(selected_task, result, selected_task["assignee"])
                     st.rerun()
 
             # ── Show result if exists ──
@@ -1439,11 +1600,169 @@ with tab_tasks:
                     unsafe_allow_html=True,
                 )
                 st.markdown(selected_task["result"])
-                if st.button("📋 Copy result to clipboard", key=f"copy_result_{selected_tid}"):
-                    st.code(selected_task["result"], language=None)
+                tr1, tr2 = st.columns(2)
+                with tr1:
+                    if st.button("📋 Copy result", key=f"copy_result_{selected_tid}"):
+                        st.code(selected_task["result"], language=None)
+                with tr2:
+                    if st.button("📤 Resend to Discord", key=f"discord_result_{selected_tid}"):
+                        ok = _send_task_to_discord(selected_task, selected_task["result"], selected_task["assignee"])
+                        if ok:
+                            st.success("✅ Sent to Discord!")
+                        else:
+                            st.warning("⚠️ Discord webhook not configured — add secrets.")
 
 # =============================================================================
-# TAB 3 — CHAT (per-agent memory + workflows)
+# TAB — CHAINS (Multi-Agent Collaboration)
+# =============================================================================
+with tab_chains:
+    st.markdown('<div class="section-header">🔗 MULTI-AGENT CHAINS</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.88rem;color:#94a3b8;margin-bottom:12px">'
+        'Route work through multiple agents in sequence. Each agent builds on the previous output. '
+        'Results auto-deliver to Discord.</div>',
+        unsafe_allow_html=True,
+    )
+
+    if "chain_history" not in st.session_state:
+        st.session_state.chain_history = []
+
+    # ── Chain selector ──
+    chain_choice = st.selectbox("Select a chain", list(CHAIN_PRESETS.keys()), key="chain_select")
+    chain_info = CHAIN_PRESETS[chain_choice]
+    st.caption(chain_info["description"])
+
+    # Custom chain builder
+    if chain_choice == "🛠️ Custom Chain":
+        custom_agents = st.multiselect(
+            "Pick agents in order (first → last)",
+            list(AGENTS.keys()),
+            default=["ATLAS", "SCRIBE"],
+            key="custom_chain_agents",
+        )
+        chain_agents = custom_agents
+    else:
+        chain_agents = chain_info["agents"]
+        # Show visual pipeline
+        pipe_cols = st.columns(len(chain_agents) * 2 - 1)
+        for i, agent in enumerate(chain_agents):
+            ai = AGENTS[agent]
+            with pipe_cols[i * 2]:
+                st.markdown(
+                    f'<div style="text-align:center;padding:8px;border-radius:8px;'
+                    f'border:1px solid {ai["color"]}40;background:{ai["color"]}10">'
+                    f'<div style="font-size:1.3rem">{ai["icon"]}</div>'
+                    f'<div style="font-family:Orbitron,monospace;font-size:0.65rem;'
+                    f'color:{ai["color"]};font-weight:700">{agent}</div>'
+                    f'<div style="font-family:Share Tech Mono,monospace;font-size:0.55rem;color:#94a3b8">'
+                    f'{ai["role"]}</div></div>',
+                    unsafe_allow_html=True,
+                )
+            if i < len(chain_agents) - 1:
+                with pipe_cols[i * 2 + 1]:
+                    st.markdown(
+                        '<div style="text-align:center;padding-top:20px;color:#8b5cf6;font-size:1.2rem">→</div>',
+                        unsafe_allow_html=True,
+                    )
+
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ── Chain input ──
+    with st.form("chain_form"):
+        chain_input = st.text_area(
+            "What should this chain work on?",
+            placeholder="e.g. Research the AI dashboard market, write a blog post about our findings, then review it for quality...",
+            height=100,
+            key="chain_input",
+        )
+        chain_model = st.selectbox("Model", ["Claude (Anthropic)", "Grok (xAI)"], key="chain_model")
+        chain_discord = st.checkbox("📤 Send results to Discord", value=True, key="chain_discord")
+        chain_submit = st.form_submit_button("🚀 Execute Chain", use_container_width=True)
+
+    if chain_submit and chain_input and chain_agents:
+        steps_results = []
+        prev_output = ""
+
+        for i, agent in enumerate(chain_agents):
+            ai = AGENTS[agent]
+            step_num = i + 1
+            total = len(chain_agents)
+
+            st.markdown(
+                f'<div class="dept-card" style="border-left:3px solid {ai["color"]};margin:6px 0">'
+                f'<span style="font-family:Share Tech Mono,monospace;font-size:0.7rem;color:#8b5cf6">'
+                f'STEP {step_num}/{total}</span><br/>'
+                f'<span class="agent-name">{ai["icon"]} {agent}</span> · '
+                f'<span class="agent-role">{ai["role"]}</span></div>',
+                unsafe_allow_html=True,
+            )
+
+            with st.spinner(f"{ai['icon']} {agent} is working (step {step_num}/{total})..."):
+                # Build prompt
+                if chain_choice != "🛠️ Custom Chain" and i < len(chain_info["handoff_prompts"]):
+                    prompt_template = chain_info["handoff_prompts"][i]
+                    if i == 0:
+                        prompt = prompt_template.replace("{input}", chain_input)
+                    else:
+                        prompt = prompt_template.replace("{prev_output}", prev_output)
+                else:
+                    if i == 0:
+                        prompt = f"CEO Loash has assigned you a task as part of a multi-agent chain.\n\nTASK: {chain_input}\n\nProvide a thorough output."
+                    else:
+                        prompt = (
+                            f"You are step {step_num} of {total} in a multi-agent chain.\n"
+                            f"The previous agent ({chain_agents[i-1]}) produced this output:\n\n"
+                            f"{prev_output}\n\n"
+                            f"Build on their work. Improve, refine, or add your expertise."
+                        )
+
+                result = _call_llm(agent, chain_model, claude_api_key, grok_api_key,
+                                   [{"role": "user", "content": prompt}])
+
+                steps_results.append({
+                    "agent": agent,
+                    "role": ai["role"],
+                    "result": result,
+                })
+                prev_output = result
+
+            # Show result
+            with st.expander(f"{ai['icon']} {agent} output", expanded=(i == len(chain_agents) - 1)):
+                st.markdown(result)
+
+            # Save to agent chat memory
+            st.session_state.agent_chats[agent].append({"role": "user", "content": f"[Chain] {prompt[:200]}..."})
+            st.session_state.agent_chats[agent].append({"role": "assistant", "content": result})
+
+        # ── Chain complete ──
+        st.success(f"✅ Chain complete — {len(chain_agents)} agents finished.")
+
+        # Send to Discord
+        if chain_discord:
+            _send_chain_to_discord(chain_choice, steps_results, prev_output)
+            st.success("📤 Results sent to Discord!")
+
+        # Save to history
+        st.session_state.chain_history.append({
+            "name": chain_choice,
+            "input": chain_input,
+            "steps": steps_results,
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        })
+
+    # ── Chain history ──
+    if st.session_state.chain_history:
+        st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">📜 CHAIN HISTORY</div>', unsafe_allow_html=True)
+        for ch in reversed(st.session_state.chain_history):
+            with st.expander(f"{ch['name']} — {ch['time']}"):
+                st.caption(f"Input: {ch['input'][:150]}...")
+                for step in ch["steps"]:
+                    st.markdown(f"**{step['agent']}** ({step['role']}):")
+                    st.markdown(step["result"][:500] + ("..." if len(step["result"]) > 500 else ""))
+
+# =============================================================================
+# TAB 4 — CHAT (per-agent memory + workflows)
 # =============================================================================
 with tab_chat:
     st.markdown('<div class="section-header">AGENT COMMUNICATION</div>', unsafe_allow_html=True)
@@ -1835,7 +2154,7 @@ with tab_chat:
             st.rerun()
 
 # =============================================================================
-# TAB 4 — ORG CHART (Pure HTML/CSS hierarchy)
+# TAB 5 — ORG CHART (Pure HTML/CSS hierarchy)
 # =============================================================================
 with tab_org:
     st.markdown('<div class="section-header">ORGANIZATION HIERARCHY</div>', unsafe_allow_html=True)
@@ -1922,7 +2241,7 @@ with tab_org:
                 st.markdown(dept_block(dept_key), unsafe_allow_html=True)
 
 # =============================================================================
-# TAB 5 — OFFICE
+# TAB 6 — OFFICE
 # =============================================================================
 with tab_office:
     st.markdown('<div class="section-header">THE OFFICE — TEAM OVERVIEW</div>', unsafe_allow_html=True)
