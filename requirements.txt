@@ -4,3 +4,4 @@ anthropic
 openai
 requests
 streamlit-mic-recorder
+edge-tts
