@@ -803,6 +803,22 @@ with tab_jarvis:
             st.session_state.jarvis_chat = []
             st.rerun()
 
+    # ── Mic Button (PC + Mobile) ──
+    from streamlit_mic_recorder import speech_to_text
+    mic1, mic2, mic3 = st.columns([1, 2, 1])
+    with mic2:
+        voice_text = speech_to_text(
+            language="en",
+            start_prompt="🎙️  TAP TO TALK",
+            stop_prompt="⏹️  SEND TO JARVIS",
+            just_once=True,
+            use_container_width=True,
+            key="jarvis_stt",
+        )
+    if voice_text:
+        st.session_state.jarvis_chat.append({"role": "user", "content": voice_text})
+        st.rerun()
+
     # ── JARVIS System Prompt ──
     jarvis_system = (
         "You are J.A.R.V.I.S., the Chief Strategy Officer and personal AI assistant for CEO Loash. "
@@ -920,7 +936,7 @@ with tab_jarvis:
     st.markdown(
         '<div style="text-align:center;font-family:Share Tech Mono,monospace;font-size:0.62rem;'
         'color:#475569;letter-spacing:1px;margin-top:8px">'
-        '💡 PRO TIP: TAP THE 🎙️ ICON ON YOUR PHONE KEYBOARD TO DICTATE HANDS-FREE'
+        '💡 USE THE MIC BUTTON ABOVE FOR VOICE · OR TYPE BELOW · PHONE: USE 🎙️ ON KEYBOARD'
         '</div>',
         unsafe_allow_html=True,
     )
