@@ -909,29 +909,27 @@ with tab_jarvis:
                         try:
                             import requests as req
                             import base64
-                            # Use "Daniel" voice (deep British) — change voice_id for different voices
-                            # Daniel: onwK4e9ZLuTAKqWW03F9  Adam: pNInz6obpgDQGcFmaJgB
-                            # Rachel: 21m00Tcm4TlvDq8ikWAM  Josh: TxGEqnHWrfWFTfGW9XjX
-                            voice_id = "onwK4e9ZLuTAKqWW03F9"  # Daniel
+                            # Daniel voice — deep British, professional
+                            voice_id = "onwK4e9ZLuTAKqWW03F9"
                             tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
                             tts_resp = req.post(
                                 tts_url,
                                 headers={
                                     "xi-api-key": eleven_api_key,
                                     "Content-Type": "application/json",
+                                    "Accept": "audio/mpeg",
                                 },
                                 json={
                                     "text": clean,
-                                    "model_id": "eleven_turbo_v2_5",
+                                    "model_id": "eleven_multilingual_v2",
                                     "voice_settings": {
                                         "stability": 0.5,
                                         "similarity_boost": 0.75,
-                                        "style": 0.3,
                                     },
                                 },
                                 timeout=15,
                             )
-                            if tts_resp.status_code == 200:
+                            if tts_resp.status_code == 200 and len(tts_resp.content) > 1000:
                                 audio_b64 = base64.b64encode(tts_resp.content).decode()
                                 st.components.v1.html(
                                     f'<audio autoplay><source src="data:audio/mpeg;base64,{audio_b64}" type="audio/mpeg"></audio>',
@@ -939,9 +937,14 @@ with tab_jarvis:
                                 )
                                 spoke = True
                             else:
-                                st.caption(f"⚠️ ElevenLabs: {tts_resp.status_code} — falling back to browser voice")
+                                err_detail = ""
+                                try:
+                                    err_detail = tts_resp.json().get("detail", {})
+                                except Exception:
+                                    err_detail = tts_resp.text[:200]
+                                st.warning(f"⚠️ ElevenLabs {tts_resp.status_code}: {err_detail}")
                         except Exception as e:
-                            st.caption(f"⚠️ ElevenLabs error — using browser voice")
+                            st.warning(f"⚠️ ElevenLabs error: {e}")
 
                     # Browser TTS fallback
                     if not spoke:
