@@ -661,7 +661,6 @@ with st.sidebar:
 
     default_claude_key = ""
     default_grok_key = ""
-    default_eleven_key = ""
     try:
         default_claude_key = st.secrets.get("ANTHROPIC_API_KEY", "")
     except Exception:
@@ -670,16 +669,11 @@ with st.sidebar:
         default_grok_key = st.secrets.get("XAI_API_KEY", "")
     except Exception:
         pass
-    try:
-        default_eleven_key = st.secrets.get("ELEVENLABS_API_KEY", "")
-    except Exception:
-        pass
 
     claude_api_key = st.text_input("Anthropic (Claude)", value=default_claude_key, type="password", help="sk-ant-...")
     grok_api_key = st.text_input("xAI (Grok)", value=default_grok_key, type="password", help="xai-...")
-    eleven_api_key = st.text_input("ElevenLabs (Voice)", value=default_eleven_key, type="password", help="For JARVIS voice")
 
-    k1, k2, k3 = st.columns(3)
+    k1, k2 = st.columns(2)
     with k1:
         if claude_api_key:
             st.success("✅ Claude")
@@ -690,11 +684,6 @@ with st.sidebar:
             st.success("✅ Grok")
         else:
             st.warning("⚠️ Grok")
-    with k3:
-        if eleven_api_key:
-            st.success("✅ Voice")
-        else:
-            st.caption("🔇 Browser")
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
@@ -897,65 +886,53 @@ with tab_jarvis:
                 st.markdown(j_resp)
                 st.session_state.jarvis_chat.append({"role": "assistant", "content": j_resp})
 
-                # Voice output — ElevenLabs if available, browser TTS fallback
+                # Voice output — Microsoft Edge TTS (free, unlimited, high quality)
                 if st.session_state.jarvis_voice_enabled and j_resp:
                     clean = j_resp.replace("**","").replace("*","").replace("#","").replace("`","")
                     clean = clean.replace("\n"," ").replace("\\","").strip()
-                    if len(clean) > 600:
-                        clean = clean[:600] + "... see full response on screen."
+                    if len(clean) > 800:
+                        clean = clean[:800] + "... see full response on screen."
 
-                    spoke = False
-                    if eleven_api_key:
-                        try:
-                            import requests as req
-                            import base64
-                            # Daniel voice — deep British, professional
-                            voice_id = "onwK4e9ZLuTAKqWW03F9"
-                            tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-                            tts_resp = req.post(
-                                tts_url,
-                                headers={
-                                    "xi-api-key": eleven_api_key,
-                                    "Content-Type": "application/json",
-                                    "Accept": "audio/mpeg",
-                                },
-                                json={
-                                    "text": clean,
-                                    "model_id": "eleven_multilingual_v2",
-                                    "voice_settings": {
-                                        "stability": 0.5,
-                                        "similarity_boost": 0.75,
-                                    },
-                                },
-                                timeout=15,
+                    try:
+                        import edge_tts
+                        import asyncio
+                        import base64
+                        import tempfile
+                        import os
+
+                        async def _gen_speech(text, voice, outfile):
+                            comm = edge_tts.Communicate(text, voice)
+                            await comm.save(outfile)
+
+                        # Voice options — pick one:
+                        # en-US-GuyNeural (deep American male)
+                        # en-GB-RyanNeural (British male — recommended for JARVIS)
+                        # en-US-ChristopherNeural (authoritative American)
+                        # en-US-JennyNeural (female)
+                        jarvis_voice = "en-GB-RyanNeural"
+
+                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+                            tmp_path = tmp.name
+
+                        asyncio.run(_gen_speech(clean, jarvis_voice, tmp_path))
+
+                        with open(tmp_path, "rb") as f:
+                            audio_bytes = f.read()
+                        os.unlink(tmp_path)
+
+                        if audio_bytes:
+                            audio_b64 = base64.b64encode(audio_bytes).decode()
+                            st.components.v1.html(
+                                f'<audio autoplay><source src="data:audio/mpeg;base64,{audio_b64}" type="audio/mpeg"></audio>',
+                                height=0,
                             )
-                            if tts_resp.status_code == 200 and len(tts_resp.content) > 1000:
-                                audio_b64 = base64.b64encode(tts_resp.content).decode()
-                                st.components.v1.html(
-                                    f'<audio autoplay><source src="data:audio/mpeg;base64,{audio_b64}" type="audio/mpeg"></audio>',
-                                    height=0,
-                                )
-                                spoke = True
-                            else:
-                                err_detail = ""
-                                try:
-                                    err_detail = tts_resp.json().get("detail", {})
-                                except Exception:
-                                    err_detail = tts_resp.text[:200]
-                                st.warning(f"⚠️ ElevenLabs {tts_resp.status_code}: {err_detail}")
-                        except Exception as e:
-                            st.warning(f"⚠️ ElevenLabs error: {e}")
-
-                    # Browser TTS fallback
-                    if not spoke:
+                    except Exception as e:
+                        # Silent fallback to browser TTS
                         clean_js = clean.replace("'", "\\'").replace('"', '\\"')
                         st.components.v1.html(f"""<script>
                         (function(){{const s=window.speechSynthesis;s.cancel();
                         const u=new SpeechSynthesisUtterance('{clean_js}');
-                        u.rate=1.0;u.pitch=0.85;
-                        const v=s.getVoices();
-                        const p=v.find(x=>x.name.includes('Daniel')||x.name.includes('Google UK English Male'));
-                        if(p)u.voice=p;s.speak(u)}})();
+                        u.rate=1.0;u.pitch=0.85;s.speak(u)}})();
                         </script>""", height=0)
 
     # ── Text input — use your phone/browser dictation (mic icon on keyboard) ──
