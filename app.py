@@ -889,8 +889,8 @@ st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 # =============================================================================
 # TABS
 # =============================================================================
-tab_jarvis, tab_mission, tab_tasks, tab_chains, tab_chat, tab_org, tab_office = st.tabs(
-    ["🎙️ JARVIS", "🎯 MISSION CONTROL", "📋 TASKS", "🔗 CHAINS", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
+tab_jarvis, tab_mission, tab_tasks, tab_chains, tab_leads, tab_chat, tab_org, tab_office = st.tabs(
+    ["🎙️ JARVIS", "🎯 MISSION CONTROL", "📋 TASKS", "🔗 CHAINS", "🏭 LEAD ENGINE", "💬 CHAT", "🏗️ ORG CHART", "🏠 OFFICE"]
 )
 
 # =============================================================================
@@ -1762,7 +1762,227 @@ with tab_chains:
                     st.markdown(step["result"][:500] + ("..." if len(step["result"]) > 500 else ""))
 
 # =============================================================================
-# TAB 4 — CHAT (per-agent memory + workflows)
+# TAB — LEAD ENGINE (Scout + Intel + Builder + Outreach + Closer)
+# =============================================================================
+with tab_leads:
+    st.markdown('<div class="section-header">🏭 LEAD ENGINE</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-family:Rajdhani,sans-serif;font-size:0.88rem;color:#94a3b8;margin-bottom:12px">'
+        'Automated lead generation pipeline: Scout finds businesses → Intel audits their websites → '
+        'Builder creates demos → Outreach pitches → Closer converts.</div>',
+        unsafe_allow_html=True,
+    )
+
+    if "leads" not in st.session_state:
+        st.session_state.leads = []
+    if "lead_intel" not in st.session_state:
+        st.session_state.lead_intel = {}
+
+    # ── Pipeline visual ──
+    le_agents = [
+        ("🔍", "SCOUT", "Find Leads", "#22c55e"),
+        ("🕵️", "INTEL", "Audit Sites", "#3b82f6"),
+        ("🏗️", "BUILDER", "Demo Sites", "#8b5cf6"),
+        ("📧", "OUTREACH", "Pitch", "#f59e0b"),
+        ("💰", "CLOSER", "Convert", "#ef4444"),
+    ]
+    le_cols = st.columns(9)
+    for i, (icon, name, role, color) in enumerate(le_agents):
+        with le_cols[i * 2]:
+            st.markdown(
+                f'<div style="text-align:center;padding:6px;border-radius:8px;'
+                f'border:1px solid {color}40;background:{color}08">'
+                f'<div style="font-size:1.2rem">{icon}</div>'
+                f'<div style="font-family:Orbitron,monospace;font-size:0.6rem;'
+                f'color:{color};font-weight:700">{name}</div>'
+                f'<div style="font-family:Share Tech Mono,monospace;font-size:0.5rem;color:#64748b">'
+                f'{role}</div></div>',
+                unsafe_allow_html=True,
+            )
+        if i < len(le_agents) - 1:
+            with le_cols[i * 2 + 1]:
+                st.markdown('<div style="text-align:center;padding-top:16px;color:#8b5cf6;font-size:1rem">→</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
+
+    # ── SCOUT: Find businesses ──
+    le_tab1, le_tab2, le_tab3 = st.tabs(["🔍 SCOUT", "🕵️ INTEL", "📋 LEADS DB"])
+
+    with le_tab1:
+        st.markdown("**SCOUT** finds local businesses that could benefit from a better website.")
+        with st.form("scout_form"):
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                scout_location = st.text_input("Location", placeholder="e.g. Vancouver, BC", key="scout_loc")
+            with sc2:
+                scout_industry = st.text_input("Industry / Business Type", placeholder="e.g. restaurants, dentists, plumbers", key="scout_ind")
+            scout_count = st.slider("Number of leads to find", 3, 10, 5, key="scout_count")
+            scout_go = st.form_submit_button("🔍 Scout for Leads", use_container_width=True)
+
+        if scout_go and scout_location and scout_industry:
+            with st.spinner("🔍 SCOUT is finding businesses..."):
+                scout_prompt = (
+                    f"You are SCOUT, a lead generation agent. Find {scout_count} real local businesses "
+                    f"that are {scout_industry} in {scout_location}.\n\n"
+                    f"For each business, provide:\n"
+                    f"1. Business name\n"
+                    f"2. What they do (1 sentence)\n"
+                    f"3. Their website URL (if you know it, otherwise put 'unknown')\n"
+                    f"4. Why they might need a better website (1 sentence guess)\n\n"
+                    f"IMPORTANT: Return ONLY a valid JSON array. No other text. Format:\n"
+                    f'[{{"name": "Business Name", "description": "What they do", '
+                    f'"website": "https://...", "opportunity": "Why they need help"}}]\n\n'
+                    f"If you don't know real businesses, create realistic examples based on "
+                    f"the type of businesses that typically exist in {scout_location} for {scout_industry}."
+                )
+                scout_result = _call_llm("JARVIS", "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                                         claude_api_key, grok_api_key,
+                                         [{"role": "user", "content": scout_prompt}])
+
+                # Parse JSON from response
+                import json as _json
+                try:
+                    # Try to extract JSON from response
+                    raw = scout_result.strip()
+                    if "```" in raw:
+                        raw = raw.split("```")[1]
+                        if raw.startswith("json"):
+                            raw = raw[4:]
+                        raw = raw.strip()
+                    leads_data = _json.loads(raw)
+                    for lead in leads_data:
+                        lead["status"] = "scouted"
+                        lead["score"] = None
+                        lead["intel"] = None
+                    st.session_state.leads.extend(leads_data)
+                    st.success(f"✅ SCOUT found {len(leads_data)} leads!")
+                    # Send to Discord
+                    lead_names = ", ".join([l["name"] for l in leads_data])
+                    _send_discord("research-intel",
+                        f"🔍 SCOUT: {len(leads_data)} new leads in {scout_location}",
+                        f"**Industry:** {scout_industry}\n**Location:** {scout_location}\n\n**Leads:** {lead_names}",
+                        "SCOUT", 0x22c55e)
+                except Exception as e:
+                    st.warning(f"⚠️ Could not parse leads. Raw output shown below.")
+                    st.markdown(scout_result)
+
+    with le_tab2:
+        st.markdown("**INTEL** audits websites using PageSpeed Insights and generates sales briefs.")
+        if not st.session_state.leads:
+            st.info("No leads yet — run SCOUT first.")
+        else:
+            # Show leads that can be audited
+            unaudited = [l for l in st.session_state.leads if l.get("status") == "scouted" and l.get("website", "unknown") != "unknown"]
+            if not unaudited:
+                st.info("All leads have been audited, or none have websites. Run SCOUT for more.")
+            else:
+                for i, lead in enumerate(unaudited):
+                    with st.expander(f"🏢 {lead['name']} — {lead.get('website', 'No site')}", expanded=False):
+                        st.caption(lead.get("description", ""))
+                        st.caption(f"💡 Opportunity: {lead.get('opportunity', 'N/A')}")
+
+                        if st.button(f"🕵️ Run INTEL Audit", key=f"intel_{i}_{lead['name']}", use_container_width=True):
+                            with st.spinner(f"🕵️ INTEL is auditing {lead['name']}..."):
+                                # Step 1: PageSpeed Insights (free, no key)
+                                psi_data = {}
+                                website = lead.get("website", "")
+                                if website and website != "unknown":
+                                    try:
+                                        import requests as req
+                                        psi_url = f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={website}&strategy=mobile"
+                                        psi_resp = req.get(psi_url, timeout=30)
+                                        if psi_resp.status_code == 200:
+                                            psi_json = psi_resp.json()
+                                            lh = psi_json.get("lighthouseResult", {})
+                                            cats = lh.get("categories", {})
+                                            psi_data = {
+                                                "performance": round((cats.get("performance", {}).get("score", 0) or 0) * 100),
+                                                "accessibility": round((cats.get("accessibility", {}).get("score", 0) or 0) * 100),
+                                                "seo": round((cats.get("seo", {}).get("score", 0) or 0) * 100),
+                                                "best_practices": round((cats.get("best-practices", {}).get("score", 0) or 0) * 100),
+                                                "fcp": lh.get("audits", {}).get("first-contentful-paint", {}).get("displayValue", "N/A"),
+                                                "lcp": lh.get("audits", {}).get("largest-contentful-paint", {}).get("displayValue", "N/A"),
+                                                "cls": lh.get("audits", {}).get("cumulative-layout-shift", {}).get("displayValue", "N/A"),
+                                            }
+                                    except Exception:
+                                        psi_data = {"error": "Could not reach PageSpeed API"}
+
+                                # Step 2: Claude generates sales brief
+                                intel_prompt = (
+                                    f"You are INTEL, a website audit agent writing a SALES BRIEF (not a tech report).\n\n"
+                                    f"Business: {lead['name']}\n"
+                                    f"Website: {website}\n"
+                                    f"Description: {lead.get('description', 'N/A')}\n"
+                                    f"PageSpeed Data: {_json.dumps(psi_data) if psi_data else 'No data available'}\n\n"
+                                    f"Write a plain-English sales brief for this business. Include:\n"
+                                    f"1. **PAIN SUMMARY** — What's wrong with their current site (2-3 sentences, non-technical)\n"
+                                    f"2. **SCORE CARD** — Performance: X/100, Accessibility: X/100, SEO: X/100\n"
+                                    f"3. **MONEY LEFT ON TABLE** — What revenue they're likely losing (estimate)\n"
+                                    f"4. **QUICK WINS** — 3 things that would immediately improve their business\n"
+                                    f"5. **PITCH ANGLE** — The one sentence that would make the owner listen\n\n"
+                                    f"Keep it conversational and persuasive. This is a sales tool, not a developer report."
+                                )
+                                intel_result = _call_llm("JARVIS",
+                                    "Claude (Anthropic)" if claude_api_key else "Grok (xAI)",
+                                    claude_api_key, grok_api_key,
+                                    [{"role": "user", "content": intel_prompt}])
+
+                                # Save results
+                                lead["status"] = "audited"
+                                lead["score"] = psi_data.get("performance", 0)
+                                lead["intel"] = intel_result
+                                lead["psi"] = psi_data
+                                st.session_state.lead_intel[lead["name"]] = intel_result
+
+                                # Show results
+                                if psi_data and "error" not in psi_data:
+                                    sc1, sc2, sc3, sc4 = st.columns(4)
+                                    perf = psi_data.get("performance", 0)
+                                    acc = psi_data.get("accessibility", 0)
+                                    seo = psi_data.get("seo", 0)
+                                    bp = psi_data.get("best_practices", 0)
+                                    sc1.metric("Performance", f"{perf}/100", delta=f"{'🔴 Bad' if perf < 50 else '🟡 OK' if perf < 80 else '🟢 Good'}")
+                                    sc2.metric("Accessibility", f"{acc}/100")
+                                    sc3.metric("SEO", f"{seo}/100")
+                                    sc4.metric("Best Practices", f"{bp}/100")
+
+                                st.markdown(intel_result)
+
+                                # Send to Discord
+                                _send_discord("research-intel",
+                                    f"🕵️ INTEL: Audit of {lead['name']}",
+                                    f"**Website:** {website}\n**Performance:** {psi_data.get('performance', 'N/A')}/100\n\n{intel_result[:2000]}",
+                                    "INTEL", 0x3b82f6)
+                                st.success("📤 Audit sent to Discord #research-intel")
+
+    with le_tab3:
+        st.markdown("**All scouted and audited leads**")
+        if not st.session_state.leads:
+            st.info("No leads yet — run SCOUT first.")
+        else:
+            for lead in st.session_state.leads:
+                status_color = {"scouted": "🟡", "audited": "🟢"}.get(lead.get("status"), "⚪")
+                score_txt = f" · Score: {lead['score']}/100" if lead.get("score") else ""
+                with st.expander(f"{status_color} {lead['name']}{score_txt}"):
+                    st.markdown(f"**Website:** {lead.get('website', 'N/A')}")
+                    st.markdown(f"**Status:** {lead.get('status', 'unknown')}")
+                    st.markdown(f"**Description:** {lead.get('description', 'N/A')}")
+                    st.markdown(f"**Opportunity:** {lead.get('opportunity', 'N/A')}")
+                    if lead.get("psi"):
+                        p = lead["psi"]
+                        st.markdown(f"**PageSpeed:** Performance {p.get('performance','?')}/100 · "
+                                    f"SEO {p.get('seo','?')}/100 · FCP {p.get('fcp','?')} · LCP {p.get('lcp','?')}")
+                    if lead.get("intel"):
+                        st.markdown("---")
+                        st.markdown(lead["intel"])
+
+            if st.button("🗑️ Clear all leads", key="clear_leads"):
+                st.session_state.leads = []
+                st.session_state.lead_intel = {}
+                st.rerun()
+
+# =============================================================================
+# TAB 5 — CHAT (per-agent memory + workflows)
 # =============================================================================
 with tab_chat:
     st.markdown('<div class="section-header">AGENT COMMUNICATION</div>', unsafe_allow_html=True)
