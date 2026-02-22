@@ -661,6 +661,7 @@ with st.sidebar:
 
     default_claude_key = ""
     default_grok_key = ""
+    default_eleven_key = ""
     try:
         default_claude_key = st.secrets.get("ANTHROPIC_API_KEY", "")
     except Exception:
@@ -669,11 +670,16 @@ with st.sidebar:
         default_grok_key = st.secrets.get("XAI_API_KEY", "")
     except Exception:
         pass
+    try:
+        default_eleven_key = st.secrets.get("ELEVENLABS_API_KEY", "")
+    except Exception:
+        pass
 
     claude_api_key = st.text_input("Anthropic (Claude)", value=default_claude_key, type="password", help="sk-ant-...")
     grok_api_key = st.text_input("xAI (Grok)", value=default_grok_key, type="password", help="xai-...")
+    eleven_api_key = st.text_input("ElevenLabs (Voice)", value=default_eleven_key, type="password", help="For JARVIS voice")
 
-    k1, k2 = st.columns(2)
+    k1, k2, k3 = st.columns(3)
     with k1:
         if claude_api_key:
             st.success("✅ Claude")
@@ -684,6 +690,11 @@ with st.sidebar:
             st.success("✅ Grok")
         else:
             st.warning("⚠️ Grok")
+    with k3:
+        if eleven_api_key:
+            st.success("✅ Voice")
+        else:
+            st.caption("🔇 Browser")
 
     st.markdown('<div class="glow-divider"></div>', unsafe_allow_html=True)
 
@@ -886,22 +897,63 @@ with tab_jarvis:
                 st.markdown(j_resp)
                 st.session_state.jarvis_chat.append({"role": "assistant", "content": j_resp})
 
-                # Voice output via browser TTS
+                # Voice output — ElevenLabs if available, browser TTS fallback
                 if st.session_state.jarvis_voice_enabled and j_resp:
                     clean = j_resp.replace("**","").replace("*","").replace("#","").replace("`","")
                     clean = clean.replace("\n"," ").replace("\\","").strip()
-                    # Escape for JS
-                    clean = clean.replace("'", "\\'").replace('"', '\\"')
                     if len(clean) > 600:
                         clean = clean[:600] + "... see full response on screen."
-                    st.components.v1.html(f"""<script>
-                    (function(){{const s=window.speechSynthesis;s.cancel();
-                    const u=new SpeechSynthesisUtterance('{clean}');
-                    u.rate=1.0;u.pitch=0.85;
-                    const v=s.getVoices();
-                    const p=v.find(x=>x.name.includes('Daniel')||x.name.includes('Google UK English Male'));
-                    if(p)u.voice=p;s.speak(u)}})();
-                    </script>""", height=0)
+
+                    spoke = False
+                    if eleven_api_key:
+                        try:
+                            import requests as req
+                            import base64
+                            # Use "Daniel" voice (deep British) — change voice_id for different voices
+                            # Daniel: onwK4e9ZLuTAKqWW03F9  Adam: pNInz6obpgDQGcFmaJgB
+                            # Rachel: 21m00Tcm4TlvDq8ikWAM  Josh: TxGEqnHWrfWFTfGW9XjX
+                            voice_id = "onwK4e9ZLuTAKqWW03F9"  # Daniel
+                            tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                            tts_resp = req.post(
+                                tts_url,
+                                headers={
+                                    "xi-api-key": eleven_api_key,
+                                    "Content-Type": "application/json",
+                                },
+                                json={
+                                    "text": clean,
+                                    "model_id": "eleven_turbo_v2_5",
+                                    "voice_settings": {
+                                        "stability": 0.5,
+                                        "similarity_boost": 0.75,
+                                        "style": 0.3,
+                                    },
+                                },
+                                timeout=15,
+                            )
+                            if tts_resp.status_code == 200:
+                                audio_b64 = base64.b64encode(tts_resp.content).decode()
+                                st.components.v1.html(
+                                    f'<audio autoplay><source src="data:audio/mpeg;base64,{audio_b64}" type="audio/mpeg"></audio>',
+                                    height=0,
+                                )
+                                spoke = True
+                            else:
+                                st.caption(f"⚠️ ElevenLabs: {tts_resp.status_code} — falling back to browser voice")
+                        except Exception as e:
+                            st.caption(f"⚠️ ElevenLabs error — using browser voice")
+
+                    # Browser TTS fallback
+                    if not spoke:
+                        clean_js = clean.replace("'", "\\'").replace('"', '\\"')
+                        st.components.v1.html(f"""<script>
+                        (function(){{const s=window.speechSynthesis;s.cancel();
+                        const u=new SpeechSynthesisUtterance('{clean_js}');
+                        u.rate=1.0;u.pitch=0.85;
+                        const v=s.getVoices();
+                        const p=v.find(x=>x.name.includes('Daniel')||x.name.includes('Google UK English Male'));
+                        if(p)u.voice=p;s.speak(u)}})();
+                        </script>""", height=0)
 
     # ── Text input — use your phone/browser dictation (mic icon on keyboard) ──
     if jarvis_typed := st.chat_input("Talk to JARVIS — use 🎙️ on your keyboard for voice..."):
