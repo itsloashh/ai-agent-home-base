@@ -13,6 +13,48 @@ st.set_page_config(
 )
 
 # =============================================================================
+# PASSWORD GATE — protects the entire app
+# =============================================================================
+def check_password():
+    """Returns True if the user has entered the correct password."""
+    correct_pw = ""
+    try:
+        correct_pw = st.secrets.get("APP_PASSWORD", "")
+    except Exception:
+        pass
+
+    if not correct_pw:
+        # No password set in secrets — skip gate
+        return True
+
+    if st.session_state.get("authenticated", False):
+        return True
+
+    st.markdown(
+        '<div style="display:flex;flex-direction:column;align-items:center;'
+        'justify-content:center;min-height:60vh;text-align:center">'
+        '<div style="font-size:3rem;margin-bottom:10px">🏢</div>'
+        '<div style="font-family:Orbitron,monospace;font-size:1.5rem;font-weight:800;'
+        'background:linear-gradient(135deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;'
+        '-webkit-text-fill-color:transparent;margin-bottom:4px">AI AGENT HOME BASE</div>'
+        '<div style="font-family:Share Tech Mono,monospace;font-size:0.8rem;color:#94a3b8;'
+        'letter-spacing:2px;margin-bottom:30px">CEO ACCESS REQUIRED</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    password = st.text_input("Enter password", type="password", key="pw_input")
+    if st.button("🔓 Unlock", use_container_width=True):
+        if password == correct_pw:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("❌ Incorrect password.")
+    return False
+
+if not check_password():
+    st.stop()
+
+# =============================================================================
 # CUSTOM CSS — Futuristic Dark Theme
 # =============================================================================
 st.markdown("""
