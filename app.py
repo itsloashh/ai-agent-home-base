@@ -891,7 +891,7 @@ with tab_jarvis:
         <div class="jarvis-title">J.A.R.V.I.S.</div>
         <div class="jarvis-status" id="j-status">TAP THE REACTOR TO SPEAK</div>
         <div class="jarvis-transcript" id="j-transcript"></div>
-        <button class="send-btn" id="j-send" onclick="sendTranscript()">▶ SEND TO JARVIS</button>
+        <button class="send-btn" id="j-send" onclick="sendTranscript()">📋 COPY TO CLIPBOARD</button>
     </div>
 
     <script>
@@ -962,16 +962,17 @@ with tab_jarvis:
 
     function sendTranscript() {
         if (jFinalTranscript) {
-            setJState('thinking');
-            document.getElementById('j-status').textContent = 'PROCESSING...';
-            document.getElementById('j-send').style.display = 'none';
-            // Encode and put into URL hash for Streamlit to read
-            const encoded = encodeURIComponent(jFinalTranscript);
-            // Use a hidden div to pass data
-            const dataDiv = document.getElementById('j-data');
-            if (dataDiv) dataDiv.setAttribute('data-transcript', jFinalTranscript);
-            // Post to parent
-            window.parent.postMessage({type: 'jarvis_voice', transcript: jFinalTranscript}, '*');
+            // Copy to clipboard
+            navigator.clipboard.writeText(jFinalTranscript).then(function() {
+                document.getElementById('j-status').textContent = '✅ COPIED! PASTE IN THE INPUT BELOW & HIT ENTER';
+                document.getElementById('j-send').style.display = 'none';
+                setJState('idle');
+            }).catch(function() {
+                // Fallback: select the text
+                document.getElementById('j-status').textContent = 'COPY THE TEXT ABOVE → PASTE IN INPUT BELOW';
+                document.getElementById('j-send').style.display = 'none';
+                setJState('idle');
+            });
         }
     }
 
@@ -999,7 +1000,16 @@ with tab_jarvis:
     </script>
     <div id="j-data" data-transcript="" style="display:none"></div>
     """
-    st.components.v1.html(jarvis_arc_html, height=340)
+    st.components.v1.html(jarvis_arc_html, height=300)
+
+    # ── Voice status note ──
+    st.markdown(
+        '<div style="text-align:center;font-family:Share Tech Mono,monospace;font-size:0.68rem;'
+        'color:#64748b;letter-spacing:1px;margin:-8px 0 8px">'
+        'TAP REACTOR TO SPEAK → COPY TRANSCRIPT BELOW → HIT ENTER &nbsp;|&nbsp; OR JUST TYPE DIRECTLY'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
     # ── Voice toggle + controls ──
     jv1, jv2, jv3 = st.columns([2, 2, 2])
